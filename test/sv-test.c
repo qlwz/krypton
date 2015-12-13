@@ -271,7 +271,7 @@ int main(int argc, char **argv) {
     }
   }
   SSL_library_init();
-  if (!do_test("server.crt", "server.key", cipher)) {
+  if (!do_test("server.pem", "server.key", cipher)) {
     fprintf(stderr, "sv-test failure\n");
     return EXIT_FAILURE;
   }

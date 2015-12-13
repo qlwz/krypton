@@ -2,6 +2,7 @@
 
 #include "krypton.h"
 #include "ktypes.h"
+#include "pem.h"
 
 #include "../../common/test_util.h"
 
@@ -34,14 +35,28 @@ static const char *test_match_domain_name(void) {
   return NULL;
 }
 
-static const char *test_verify_server_name(void) {
-  //  X509 *c = X509_new()
+static const char *test_verify_name(void) {
+  PEM *pem;
+  X509 *cert;
+  pem = pem_load_types("server.pem", PEM_SIG_CERT);
+  ASSERT(pem != NULL);
+  ASSERT_EQ(pem->num_obj, 1);
+  cert = X509_new(pem->obj->der, pem->obj->der_len);
+  ASSERT(cert != NULL);
+  ASSERT_EQ(X509_verify_name(cert, "do.not.use.me"), 1);    /* matches CN */
+  ASSERT_EQ(X509_verify_name(cert, "never.use.me"), 1);     /* alt name 1 */
+  ASSERT_EQ(X509_verify_name(cert, "except.for.tests"), 1); /* alt name 2 */
+  ASSERT_EQ(X509_verify_name(cert, "example.com"), 0);
+  ASSERT_EQ(X509_verify_name(cert, "xxx"), 0);
+  ASSERT_EQ(X509_verify_name(cert, ""), 0);
+  X509_free(cert);
+  pem_free(pem);
   return NULL;
 }
 
 static const char *run_tests(const char *filter, double *total_elapsed) {
   RUN_TEST(test_match_domain_name);
-  RUN_TEST(test_verify_server_name);
+  RUN_TEST(test_verify_name);
   return NULL;
 }
 

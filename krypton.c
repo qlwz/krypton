@@ -7951,12 +7951,45 @@ NS_INTERNAL int kr_match_domain_name(struct ro_vec pat, struct ro_vec dom) {
 
 NS_INTERNAL int X509_verify_name(X509 *cert, const char *name) {
   struct ro_vec n;
+  struct gber_tag tag;
+  const uint8_t *ptr, *end;
   n.ptr = (const uint8_t *) name;
   n.len = strlen(name);
+  /* Check CN in the subject. */
+  {
+    ptr = cert->subject.ptr;
+    end = cert->subject.ptr + cert->subject.len;
+    /* Iterate DN sequence components to find CN (2.5.4.3) */
+    while (ptr < end) {
+      struct gber_tag t2;
+      const uint8_t *p2, *e2;
+      ptr = ber_decode_tag(&tag, ptr, end - ptr);
+      if (ptr == NULL || tag.ber_tag != 0x31) return 0; /* Set */
+      e2 = ptr + tag.ber_len;
+      p2 = ber_decode_tag(&t2, ptr, e2 - ptr);
+      if (p2 == NULL || t2.ber_tag != 0x30) return 0; /* Seq of OID : str */
+      e2 = p2 + t2.ber_len;
+      p2 = ber_decode_tag(&t2, p2, e2 - p2);
+      if (t2.ber_len == 3 && p2[0] == 0x55 && p2[1] == 0x04 && p2[2] == 0x03) {
+        p2 += t2.ber_len;
+        p2 = ber_decode_tag(&t2, p2, e2 - p2);
+        if (p2 != NULL) {
+          struct ro_vec cn;
+          cn.ptr = p2;
+          cn.len = t2.ber_len;
+          dprintf(("CN: %.*s\n", (int) cn.len, cn.ptr));
+          if (kr_match_domain_name(n, cn)) {
+            dprintf(("name %s matched CN %.*s\n", name, (int) cn.len, cn.ptr));
+            return 1;
+          }
+        }
+      }
+      ptr += tag.ber_len;
+    }
+  }
   if (cert->alt_names.len > 0) {
-    struct gber_tag tag;
-    const uint8_t *ptr = cert->alt_names.ptr;
-    const uint8_t *end = cert->alt_names.ptr + cert->alt_names.len;
+    ptr = cert->alt_names.ptr;
+    end = cert->alt_names.ptr + cert->alt_names.len;
     while (ptr < end) {
       ptr = ber_decode_tag(&tag, ptr, end - ptr);
       if (ptr == NULL) return 0;

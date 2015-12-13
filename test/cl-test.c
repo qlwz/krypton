@@ -279,7 +279,7 @@ out:
 int main(int argc, char **argv) {
   int opt;
   const char *addr = NULL, *cipher = NULL;
-  const char *ca_file = "ca.crt";
+  const char *ca_file = "ca.pem";
   while ((opt = getopt(argc, argv, "a:c:n")) != -1) {
     switch (opt) {
       case 'a':
