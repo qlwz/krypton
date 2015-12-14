@@ -367,7 +367,18 @@ int SSL_read(SSL *ssl, void *buf, int num) {
     return 0;
   }
 
-  for (ssl->copied = ssl->got_appdata = 0; !ssl->got_appdata;) {
+  ssl->copied = 0;
+  ssl->got_appdata = 0;
+
+  if (ssl->rx_len > 0) {
+    /* Try decoding what is in the buffer already. */
+    if (!tls_handle_recv(ssl, buf, num)) {
+      ssl_err(ssl, SSL_ERROR_SSL);
+      return 0;
+    }
+  }
+
+  while (!ssl->got_appdata) {
     if (ssl->state != STATE_ESTABLISHED) {
       int ret;
       if (ssl->is_server) {
