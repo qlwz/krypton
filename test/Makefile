@@ -16,7 +16,7 @@ all: tests
 
 tests: unit-test sv-test-openssl cl-test-openssl sv-test-krypton cl-test-krypton
 
-unit-test: unit-test.c ../krypton.c ../../common/test_util.c
+unit-test: unit-test.c ../krypton.c ../../common/test_util.c ../../common/cs_time.c
 	$(CC) $(CFLAGS) -DNS_INTERNAL= -I../src -o unit-test $^
 
 sv-test-openssl: sv-test.c
