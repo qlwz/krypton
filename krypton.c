@@ -473,6 +473,11 @@ typedef enum {
 #line 1 "src/src/kexterns.h"
 /**/
 #endif
+/*
+ * Copyright (c) 2014-2016 Cesanta Software Limited
+ * All rights reserved
+ */
+
 #ifndef _KEXTERNS_H
 #define _KEXTERNS_H
 
@@ -3410,6 +3415,11 @@ static void kr_hash_md5_v(size_t num_msgs, const uint8_t *msgs[],
 #line 1 "src/src/sha1.c"
 /**/
 #endif
+/*
+ * Copyright (c) 2014-2016 Cesanta Software Limited
+ * All rights reserved
+ */
+
 /*
  * SHA1 routine optimized to do word accesses rather than byte accesses,
  * and to avoid unnecessary copies into the context array.
