@@ -24,7 +24,7 @@ all: tests
 
 krypton.c: $(HEADERS) $(SOURCES) Makefile
 	@echo "AMALGAMATING\tkrypton.c"
-	@../tools/amalgam --srcdir src krypton.h $(HEADERS) $(SOURCES) > $@
+	@../tools/amalgam --srcdir=src --prefix=KR krypton.h $(HEADERS) $(SOURCES) > $@
 
 format: krypton.c
 	@$(CLANG_FORMAT) -i src/*.[ch] test/*.[ch]

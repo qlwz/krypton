@@ -158,6 +158,11 @@ static int parse_extensions(X509 *cert, const uint8_t *ptr, size_t len) {
   const uint8_t *end = ptr + len;
   struct gber_tag tag;
 
+  if (len == 0) {
+    /* No extensions? No problem! */
+    return 1;
+  }
+
   /* skip issuerUniqueID if present */
   ptr = ber_decode_tag(&tag, ptr, end - ptr);
   if (NULL == ptr) return 0;

@@ -97,6 +97,7 @@ int SSL_CTX_load_verify_locations(SSL_CTX *ctx, const char *CAfile,
     ca = new;
   }
 
+  pem_free(p);
   X509_free(ctx->ca_store);
   ctx->ca_store = ca;
   ret = 1;

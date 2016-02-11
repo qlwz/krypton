@@ -743,9 +743,8 @@ int tls_handle_recv(SSL *ssl, uint8_t *out, size_t out_len) {
   int ret = 1;
 
   while (buf + sizeof(*hdr) <= end) {
-    uint8_t *msg_end;
     int iret = 1;
-    uint8_t *buf2;
+    uint8_t *msg, *msg_end;
     struct vec v = {NULL, 0};
 
     if (ssl->close_notify) {
@@ -759,11 +758,7 @@ int tls_handle_recv(SSL *ssl, uint8_t *out, size_t out_len) {
 
     /* already checked in loop conditiion */
     hdr = (struct tls_hdr *) buf;
-    buf2 = buf + sizeof(*hdr);
-
-#if KRYPTON_DEBUG
-    hex_dump(buf, sizeof(*hdr), 0);
-#endif
+    msg = buf + sizeof(*hdr);
 
     /* check known ssl/tls versions */
     if (hdr->vers != htobe16(0x0303)    /* TLS v1.2 */
@@ -776,19 +771,25 @@ int tls_handle_recv(SSL *ssl, uint8_t *out, size_t out_len) {
       return 0;
     }
 
-    msg_end = buf2 + be16toh(hdr->len);
+    msg_end = msg + be16toh(hdr->len);
+
+#if KRYPTON_DEBUG
+    dprintf(("msg %d len %d, have %d\n", (int) hdr->type,
+             (int) be16toh(hdr->len), (int) (end - msg)));
+#endif
+
     if (msg_end > end) {
       /* incomplete data */
       goto out;
     }
 
     if (ssl->cur) {
-      if (!decrypt_and_vrfy(ssl, hdr, buf2, msg_end, &v)) {
+      if (!decrypt_and_vrfy(ssl, hdr, msg, msg_end, &v)) {
         goto out;
       }
     } else {
-      v.ptr = buf2;
-      v.len = msg_end - buf2;
+      v.ptr = msg;
+      v.len = msg_end - msg;
     }
 
     switch (hdr->type) {
@@ -825,8 +826,9 @@ int tls_handle_recv(SSL *ssl, uint8_t *out, size_t out_len) {
 out:
   if (buf == ssl->rx_buf || ssl->extra_appdata.len > 0) return ret;
 
-  if (buf < end) {
-    dprintf(("shuffle buffer down: %d left\n", (int) (end - buf)));
+  if (buf < end && buf > ssl->rx_buf) {
+    dprintf(("shuffle buffer down: %d consumed, %d left\n",
+             (int) (buf - ssl->rx_buf), (int) (end - buf)));
     memmove(ssl->rx_buf, buf, end - buf);
     ssl->rx_len = end - buf;
   } else {

@@ -16,14 +16,18 @@
 #define NS_INTERNAL
 #endif
 
-#include <sys/types.h>
-#include <stdlib.h>
+/* C99 and later requires alloca.h. */
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ > 199900L
+#include <alloca.h>
+#endif
+
 #include <assert.h>
-#include <string.h>
-#include <stdio.h>
-#include <string.h>
 #include <ctype.h>
 #include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
 
 #ifdef _MSC_VER
 #include <winsock2.h>

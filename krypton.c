@@ -1,4 +1,4 @@
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/krypton.h"
 #endif
 /*
@@ -73,7 +73,7 @@ int SSL_CTX_use_PrivateKey_file(SSL_CTX *ctx, const char *file, int type);
 void SSL_CTX_free(SSL_CTX *);
 
 #endif /* _KRYPTON_H */
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/ktypes.h"
 #endif
 /*
@@ -94,14 +94,18 @@ void SSL_CTX_free(SSL_CTX *);
 #define NS_INTERNAL
 #endif
 
-#include <sys/types.h>
-#include <stdlib.h>
+/* C99 and later requires alloca.h. */
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ > 199900L
+#include <alloca.h>
+#endif
+
 #include <assert.h>
-#include <string.h>
-#include <stdio.h>
-#include <string.h>
 #include <ctype.h>
 #include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
 
 #ifdef _MSC_VER
 #include <winsock2.h>
@@ -282,7 +286,7 @@ typedef struct _bigint bigint; /**< An alias for _bigint */
 /* Amalgamated: #include "x509.h" */
 
 #endif /* _KTYPES_H */
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/tlsproto.h"
 #endif
 /*
@@ -466,7 +470,7 @@ typedef enum {
 #define COMPRESSOR_NULL 0x00
 
 #endif /* _TLSPROTO_H */
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/kexterns.h"
 #endif
 /*
@@ -516,7 +520,7 @@ extern void kr_hash_sha256_v(size_t num_msgs, const uint8_t *msgs[],
 #endif
 
 #endif /* _KEXTERNS_H */
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/crypto.h"
 #endif
 /*
@@ -630,7 +634,7 @@ NS_INTERNAL void kr_cipher_encrypt(kr_cs_id cs, void *ctx, const uint8_t *msg,
 NS_INTERNAL void kr_cipher_decrypt(kr_cs_id cs, void *ctx, const uint8_t *msg,
                                    int len, uint8_t *out);
 #endif /* _CRYPTO_H */
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/bigint_impl.h"
 #endif
 /*
@@ -762,7 +766,7 @@ typedef struct _BI_CTX BI_CTX;
 #define PERMANENT 0x7FFF55AA /**< A magic number for permanents. */
 
 #endif
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/bigint.h"
 #endif
 /*
@@ -862,7 +866,7 @@ NS_INTERNAL bigint *bi_crt(BI_CTX *ctx, bigint *bi, bigint *dP, bigint *dQ,
                            bigint *p, bigint *q, bigint *qInv);
 
 #endif
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/tls.h"
 #endif
 /*
@@ -938,7 +942,7 @@ NS_INTERNAL void tls_compute_master_secret(tls_sec_t sec,
                                            struct tls_premaster_secret *pre);
 
 #endif /* _TLS_H */
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/ber.h"
 #endif
 /*
@@ -979,7 +983,7 @@ int ber_dumpf(FILE *f, const uint8_t *ptr, size_t len);
 #endif
 
 #endif /* _GBER_H */
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/pem.h"
 #endif
 /*
@@ -1023,7 +1027,7 @@ NS_INTERNAL int b64_decode(const uint8_t *buf, size_t len, uint8_t *out,
                            size_t *obytes);
 
 #endif /* _PEM_H */
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/x509.h"
 #endif
 /*
@@ -1073,7 +1077,7 @@ NS_INTERNAL int X509_verify_name(X509 *cert, const char *name);
 NS_INTERNAL int kr_match_domain_name(struct ro_vec pat, struct ro_vec dom);
 
 #endif /* _X509_H */
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/b64.c"
 #endif
 /*
@@ -1211,7 +1215,7 @@ int main(int argc, char **argv) {
   return 0;
 }
 #endif
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/ber.c"
 #endif
 /*
@@ -1379,7 +1383,7 @@ NS_INTERNAL const uint8_t *ber_decode_tag(struct gber_tag *tag,
   if (NULL == ptr || ptr + tag->ber_len > end) return NULL;
   return ptr;
 }
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/bigint.c"
 #endif
 /*
@@ -2756,7 +2760,7 @@ NS_INTERNAL bigint *bi_crt(BI_CTX *ctx, bigint *bi, bigint *dP, bigint *dQ,
   return bi_add(ctx, m2, bi_multiply(ctx, q, h));
 }
 /** @} */
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/ctx.c"
 #endif
 /*
@@ -2858,6 +2862,7 @@ int SSL_CTX_load_verify_locations(SSL_CTX *ctx, const char *CAfile,
     ca = new;
   }
 
+  pem_free(p);
   X509_free(ctx->ca_store);
   ctx->ca_store = ca;
   ret = 1;
@@ -3037,7 +3042,7 @@ void SSL_CTX_free(SSL_CTX *ctx) {
   free(ctx->verify_name);
   free(ctx);
 }
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/hexdump.c"
 #endif
 /*
@@ -3088,7 +3093,7 @@ void hex_dump(const void *ptr, size_t len, size_t llen) {
   hex_dumpf(stdout, ptr, len, llen);
 }
 #endif
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/md5.c"
 #endif
 /*
@@ -3394,7 +3399,7 @@ static void kr_hash_md5_v(size_t num_msgs, const uint8_t *msgs[],
   kr_md5_final(digest, &md5);
 }
 #endif /* !KR_EXT_MD5 */
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/sha1.c"
 #endif
 /*
@@ -3658,7 +3663,7 @@ static void kr_hash_sha1_v(size_t num_msgs, const uint8_t *msgs[],
   SHA1_Final(digest, &sha1);
 }
 #endif /* !KR_EXT_SHA1 */
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/sha256.c"
 #endif
 /*
@@ -4286,7 +4291,7 @@ static void kr_hmac_sha256_v(const uint8_t *key, size_t key_len,
   kr_hmac_v(kr_hash_sha256_v, key, key_len, num_msgs, msgs, msg_lens, digest,
             SHA256_SIZE);
 }
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/hmac.c"
 #endif
 /*
@@ -4372,7 +4377,7 @@ NS_INTERNAL void kr_ssl_hmac(SSL *ssl, int cs, size_t num_msgs,
   }
   kr_hmac_v(hf, key, mac_len, num_msgs, msgs, msg_lens, digest, mac_len);
 }
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/meth.c"
 #endif
 /*
@@ -4405,7 +4410,7 @@ const SSL_METHOD *SSLv23_server_method(void) {
 const SSL_METHOD *SSLv23_client_method(void) {
   return &cl_meth;
 }
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/pem.c"
 #endif
 /*
@@ -4626,7 +4631,7 @@ void pem_free(PEM *p) {
     free(p);
   }
 }
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/prf.c"
 #endif
 /*
@@ -4665,7 +4670,7 @@ NS_INTERNAL void prf(const uint8_t *sec, size_t sec_len, const uint8_t *seed,
     memcpy(A_i, tmp, SHA256_SIZE);
   }
 }
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/random.c"
 #endif
 /*
@@ -4720,7 +4725,7 @@ int get_random_nonzero(uint8_t *out, size_t len) {
 
   return 1;
 }
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/aes.c"
 #endif
 /*
@@ -5128,7 +5133,7 @@ NS_INTERNAL void *kr_aes_ctx_new() {
 }
 
 #endif
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/rc4.c"
 #endif
 /*
@@ -5226,7 +5231,7 @@ void kr_rc4_crypt(kr_rc4_ctx *ctx, const uint8_t *msg, uint8_t *out,
 NS_INTERNAL void *kr_rc4_ctx_new() {
   return calloc(1, sizeof(kr_rc4_ctx));
 }
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/cipher.c"
 #endif
 /*
@@ -5354,7 +5359,7 @@ NS_INTERNAL void kr_cipher_ctx_free(kr_cs_id cs, void *ctx) {
   }
   /* Do not panic, we may not have negotiated a cipher at all. */
 }
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/rsa.c"
 #endif
 /*
@@ -5618,7 +5623,7 @@ int RSA_encrypt(const RSA_CTX *ctx, const uint8_t *in_data, uint16_t in_len,
   bi_clear_cache(ctx->bi_ctx);
   return byte_size;
 }
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/ssl.c"
 #endif
 /*
@@ -5671,7 +5676,7 @@ int SSL_get_fd(SSL *ssl) {
 
 static int do_send(SSL *ssl) {
   const uint8_t *buf;
-  size_t len;
+  size_t len, send_len;
   ssize_t ret;
 
   buf = ssl->tx_buf;
@@ -5684,15 +5689,16 @@ static int do_send(SSL *ssl) {
 again:
 
 #if KRYPTON_DEBUG_NONBLOCKING
-  ret = kr_send(ssl->fd, buf, 1, MSG_NOSIGNAL);
+  send_len = 1;
 #else
-  ret = kr_send(ssl->fd, buf, len, MSG_NOSIGNAL);
+  send_len = len;
 #endif
+  ret = kr_send(ssl->fd, buf, send_len, MSG_NOSIGNAL);
+  dprintf(("kr_send(%d, %p, %d) = %d\n", ssl->fd, buf, (int) send_len, (int) ret));
   if (ret < 0) {
     if (SOCKET_ERRNO == EWOULDBLOCK) {
       goto shuffle;
     }
-    dprintf(("send: %s\n", strerror(SOCKET_ERRNO)));
     ssl_err(ssl, SSL_ERROR_SYSCALL);
     ssl->tx_len = 0;
     ssl->write_pending = 0;
@@ -5773,8 +5779,8 @@ static int do_recv(SSL *ssl, uint8_t *out, size_t out_len) {
 #endif
 
   ret = kr_recv(ssl->fd, ptr, len, MSG_NOSIGNAL);
-  /*dprintf(("recv(%d, %p, %d): %d %d\n", ssl->fd, ptr, (int) len, (int) ret,
-   * errno));*/
+  dprintf(("kr_recv(%d, %p, %d): %d %d\n",
+           ssl->fd, ptr, (int) len, (int) ret, errno));
   if (ret < 0) {
     if (SOCKET_ERRNO == EWOULDBLOCK) {
       ssl_err(ssl, SSL_ERROR_WANT_READ);
@@ -6131,7 +6137,7 @@ void ssl_err(SSL *ssl, int err) {
   }
   ssl->err = err;
 }
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/tls.c"
 #endif
 /*
@@ -6427,7 +6433,7 @@ NS_INTERNAL int tls_alert(SSL *ssl, uint8_t level, uint8_t desc) {
 NS_INTERNAL int tls_close_notify(SSL *ssl) {
   return tls_alert(ssl, ALERT_LEVEL_WARNING, ALERT_CLOSE_NOTIFY);
 }
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/tls_cl.c"
 #endif
 /*
@@ -6553,7 +6559,7 @@ NS_INTERNAL int tls_cl_finish(SSL *ssl) {
 
   return 1;
 }
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/tls_recv.c"
 #endif
 /*
@@ -7301,9 +7307,8 @@ int tls_handle_recv(SSL *ssl, uint8_t *out, size_t out_len) {
   int ret = 1;
 
   while (buf + sizeof(*hdr) <= end) {
-    uint8_t *msg_end;
     int iret = 1;
-    uint8_t *buf2;
+    uint8_t *msg, *msg_end;
     struct vec v = {NULL, 0};
 
     if (ssl->close_notify) {
@@ -7317,11 +7322,7 @@ int tls_handle_recv(SSL *ssl, uint8_t *out, size_t out_len) {
 
     /* already checked in loop conditiion */
     hdr = (struct tls_hdr *) buf;
-    buf2 = buf + sizeof(*hdr);
-
-#if KRYPTON_DEBUG
-    hex_dump(buf, sizeof(*hdr), 0);
-#endif
+    msg = buf + sizeof(*hdr);
 
     /* check known ssl/tls versions */
     if (hdr->vers != htobe16(0x0303)    /* TLS v1.2 */
@@ -7334,19 +7335,24 @@ int tls_handle_recv(SSL *ssl, uint8_t *out, size_t out_len) {
       return 0;
     }
 
-    msg_end = buf2 + be16toh(hdr->len);
+    msg_end = msg + be16toh(hdr->len);
+
+#if KRYPTON_DEBUG
+    dprintf(("msg %d len %d, have %d\n", (int) hdr->type, (int) be16toh(hdr->len), (int) (end - msg)));
+#endif
+
     if (msg_end > end) {
       /* incomplete data */
       goto out;
     }
 
     if (ssl->cur) {
-      if (!decrypt_and_vrfy(ssl, hdr, buf2, msg_end, &v)) {
+      if (!decrypt_and_vrfy(ssl, hdr, msg, msg_end, &v)) {
         goto out;
       }
     } else {
-      v.ptr = buf2;
-      v.len = msg_end - buf2;
+      v.ptr = msg;
+      v.len = msg_end - msg;
     }
 
     switch (hdr->type) {
@@ -7383,8 +7389,8 @@ int tls_handle_recv(SSL *ssl, uint8_t *out, size_t out_len) {
 out:
   if (buf == ssl->rx_buf || ssl->extra_appdata.len > 0) return ret;
 
-  if (buf < end) {
-    dprintf(("shuffle buffer down: %d left\n", (int) (end - buf)));
+  if (buf < end && buf > ssl->rx_buf) {
+    dprintf(("shuffle buffer down: %d consumed, %d left\n", (int) (buf - ssl->rx_buf), (int) (end - buf)));
     memmove(ssl->rx_buf, buf, end - buf);
     ssl->rx_len = end - buf;
   } else {
@@ -7396,7 +7402,7 @@ out:
 
   return ret;
 }
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/tls_sv.c"
 #endif
 /*
@@ -7507,7 +7513,7 @@ NS_INTERNAL int tls_sv_finish(SSL *ssl) {
 
   return tls_send(ssl, TLS_HANDSHAKE, &finished, sizeof(finished));
 }
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/x509.c"
 #endif
 /*
@@ -7669,6 +7675,11 @@ static int decode_extension(X509 *cert, const uint8_t *oid, size_t oid_len,
 static int parse_extensions(X509 *cert, const uint8_t *ptr, size_t len) {
   const uint8_t *end = ptr + len;
   struct gber_tag tag;
+
+  if (len == 0) {
+    /* No extensions? No problem! */
+    return 1;
+  }
 
   /* skip issuerUniqueID if present */
   ptr = ber_decode_tag(&tag, ptr, end - ptr);
@@ -7995,7 +8006,7 @@ NS_INTERNAL int X509_verify_name(X509 *cert, const char *name) {
   }
   return 0;
 }
-#ifdef NS_MODULE_LINES
+#ifdef KR_MODULE_LINES
 #line 0 "src/src/x509_verify.c"
 #endif
 /*

@@ -48,7 +48,7 @@ int SSL_get_fd(SSL *ssl) {
 
 static int do_send(SSL *ssl) {
   const uint8_t *buf;
-  size_t len;
+  size_t len, send_len;
   ssize_t ret;
 
   buf = ssl->tx_buf;
@@ -61,15 +61,17 @@ static int do_send(SSL *ssl) {
 again:
 
 #if KRYPTON_DEBUG_NONBLOCKING
-  ret = kr_send(ssl->fd, buf, 1, MSG_NOSIGNAL);
+  send_len = 1;
 #else
-  ret = kr_send(ssl->fd, buf, len, MSG_NOSIGNAL);
+  send_len = len;
 #endif
+  ret = kr_send(ssl->fd, buf, send_len, MSG_NOSIGNAL);
+  dprintf(
+      ("kr_send(%d, %p, %d) = %d\n", ssl->fd, buf, (int) send_len, (int) ret));
   if (ret < 0) {
     if (SOCKET_ERRNO == EWOULDBLOCK) {
       goto shuffle;
     }
-    dprintf(("send: %s\n", strerror(SOCKET_ERRNO)));
     ssl_err(ssl, SSL_ERROR_SYSCALL);
     ssl->tx_len = 0;
     ssl->write_pending = 0;
@@ -150,8 +152,8 @@ static int do_recv(SSL *ssl, uint8_t *out, size_t out_len) {
 #endif
 
   ret = kr_recv(ssl->fd, ptr, len, MSG_NOSIGNAL);
-  /*dprintf(("recv(%d, %p, %d): %d %d\n", ssl->fd, ptr, (int) len, (int) ret,
-   * errno));*/
+  dprintf(("kr_recv(%d, %p, %d): %d %d\n", ssl->fd, ptr, (int) len, (int) ret,
+           errno));
   if (ret < 0) {
     if (SOCKET_ERRNO == EWOULDBLOCK) {
       ssl_err(ssl, SSL_ERROR_WANT_READ);
