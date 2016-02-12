@@ -5694,7 +5694,8 @@ again:
   send_len = len;
 #endif
   ret = kr_send(ssl->fd, buf, send_len, MSG_NOSIGNAL);
-  dprintf(("kr_send(%d, %p, %d) = %d\n", ssl->fd, buf, (int) send_len, (int) ret));
+  dprintf(
+      ("kr_send(%d, %p, %d) = %d\n", ssl->fd, buf, (int) send_len, (int) ret));
   if (ret < 0) {
     if (SOCKET_ERRNO == EWOULDBLOCK) {
       goto shuffle;
@@ -5779,8 +5780,8 @@ static int do_recv(SSL *ssl, uint8_t *out, size_t out_len) {
 #endif
 
   ret = kr_recv(ssl->fd, ptr, len, MSG_NOSIGNAL);
-  dprintf(("kr_recv(%d, %p, %d): %d %d\n",
-           ssl->fd, ptr, (int) len, (int) ret, errno));
+  dprintf(("kr_recv(%d, %p, %d): %d %d\n", ssl->fd, ptr, (int) len, (int) ret,
+           errno));
   if (ret < 0) {
     if (SOCKET_ERRNO == EWOULDBLOCK) {
       ssl_err(ssl, SSL_ERROR_WANT_READ);
@@ -7338,7 +7339,8 @@ int tls_handle_recv(SSL *ssl, uint8_t *out, size_t out_len) {
     msg_end = msg + be16toh(hdr->len);
 
 #if KRYPTON_DEBUG
-    dprintf(("msg %d len %d, have %d\n", (int) hdr->type, (int) be16toh(hdr->len), (int) (end - msg)));
+    dprintf(("msg %d len %d, have %d\n", (int) hdr->type,
+             (int) be16toh(hdr->len), (int) (end - msg)));
 #endif
 
     if (msg_end > end) {
@@ -7390,7 +7392,8 @@ out:
   if (buf == ssl->rx_buf || ssl->extra_appdata.len > 0) return ret;
 
   if (buf < end && buf > ssl->rx_buf) {
-    dprintf(("shuffle buffer down: %d consumed, %d left\n", (int) (buf - ssl->rx_buf), (int) (end - buf)));
+    dprintf(("shuffle buffer down: %d consumed, %d left\n",
+             (int) (buf - ssl->rx_buf), (int) (end - buf)));
     memmove(ssl->rx_buf, buf, end - buf);
     ssl->rx_len = end - buf;
   } else {
