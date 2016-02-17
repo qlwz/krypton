@@ -46,6 +46,7 @@ void SSL_CTX_set_verify(SSL_CTX *ctx, int mode,
                         int (*verify_callback)(int, X509_STORE_CTX *)) {
   /* not implemented */
   assert(verify_callback == NULL);
+  (void) verify_callback;
 
   ctx->vrfy_mode = mode;
 }
