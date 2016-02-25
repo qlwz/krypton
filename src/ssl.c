@@ -315,6 +315,21 @@ int SSL_connect(SSL *ssl) {
 
     /* fall through */
     case STATE_SV_DONE_RCVD:
+      if (ssl->cert_requested) {
+        const PEM *cert = ssl->ctx->pem_cert;
+        PEM empty;
+        if (ssl->ctx->pem_cert == NULL) {
+          dprintf(("warning: client cert requested but none is provided\n"));
+          /* We still need to send an empty message. */
+          memset(&empty, 0, sizeof(empty));
+          cert = &empty;
+        }
+        if (!tls_send_certs(ssl, cert)) {
+          dprintf(("failed to send client certs\n"));
+          ssl_err(ssl, SSL_ERROR_SYSCALL);
+          return -1;
+        }
+      }
       if (!tls_cl_finish(ssl)) {
         dprintf(("failed to construct key exchange\n"));
         ssl_err(ssl, SSL_ERROR_SYSCALL);

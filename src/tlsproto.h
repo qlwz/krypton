@@ -111,6 +111,19 @@ struct tls_alert {
 } __packed;
 #pragma pack()
 
+enum TLS_HashAlgorithm {
+  TLS_HASH_SHA256 = 4,
+};
+
+enum TLS_SignatureAlgorithm {
+  TLS_SIG_RSA = 1,
+};
+
+#define TLS_1_2_PROTO 0x0303
+#define TLS_1_1_PROTO 0x0302
+#define TLS_1_0_PROTO 0x0301
+#define SSL_3_0_PROTO 0x0300
+
 #define TLS_CHANGE_CIPHER_SPEC 20
 #define TLS_ALERT 21
 #define TLS_HANDSHAKE 22

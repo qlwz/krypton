@@ -178,7 +178,7 @@ NS_INTERNAL int tls_send_enc(SSL *ssl, uint8_t type, const void *buf,
   }
 
   hdr.type = type;
-  hdr.vers = htobe16(0x0303);
+  hdr.vers = htobe16(TLS_1_2_PROTO);
   hdr.len = 0; /* will fill in at the end. */
 
   hdr_offset = ssl->tx_len;
@@ -253,6 +253,10 @@ NS_INTERNAL int tls_send_enc(SSL *ssl, uint8_t type, const void *buf,
 }
 
 NS_INTERNAL int tls_send(SSL *ssl, uint8_t type, const void *buf, size_t len) {
+  if (type == TLS_HANDSHAKE &&
+      ((const uint8_t *) buf)[0] != HANDSHAKE_HELLO_REQ) {
+    tls_add_handshake_to_hash(ssl, buf, len);
+  }
   if (ssl->tx_enc) {
     return tls_send_enc(ssl, type, buf, len);
   } else {
@@ -260,7 +264,7 @@ NS_INTERNAL int tls_send(SSL *ssl, uint8_t type, const void *buf, size_t len) {
     size_t max = (1 << 14);
     if (len > max) len = max;
     hdr.type = type;
-    hdr.vers = htobe16(0x0303);
+    hdr.vers = htobe16(TLS_1_2_PROTO);
     hdr.len = htobe16(len);
 
     if (!tls_tx_push(ssl, &hdr, sizeof(hdr))) return 0;
@@ -268,6 +272,55 @@ NS_INTERNAL int tls_send(SSL *ssl, uint8_t type, const void *buf, size_t len) {
 
     return len;
   }
+}
+
+NS_INTERNAL void tls_add_handshake_to_hash(SSL *ssl, const void *data,
+                                           size_t len) {
+  if (ssl->cur) SHA256_Update(&ssl->cur->handshakes_hash, data, len);
+  if (ssl->nxt) SHA256_Update(&ssl->nxt->handshakes_hash, data, len);
+}
+
+NS_INTERNAL int tls_send_certs(SSL *ssl, const PEM *certs) {
+  unsigned int i;
+  struct tls_hdr hdr;
+  struct tls_cert cert;
+  struct tls_cert_hdr chdr;
+
+  if (certs == NULL) return 0;
+
+  dprintf(("sending %d certs\n", (int) certs->num_obj));
+
+  hdr.type = TLS_HANDSHAKE;
+  hdr.vers = htobe16(TLS_1_2_PROTO);
+  hdr.len =
+      htobe16(sizeof(cert) + sizeof(chdr) * certs->num_obj + certs->tot_len);
+
+  if (!tls_tx_push(ssl, &hdr, sizeof(hdr))) return 0;
+
+  cert.type = HANDSHAKE_CERTIFICATE;
+  cert.len_hi = 0;
+  cert.len =
+      htobe16(sizeof(chdr) + sizeof(chdr) * certs->num_obj + certs->tot_len);
+  cert.certs_len_hi = 0;
+  cert.certs_len = htobe16(sizeof(chdr) * certs->num_obj + certs->tot_len);
+
+  if (!tls_tx_push(ssl, &cert, sizeof(cert))) return 0;
+
+  tls_add_handshake_to_hash(ssl, &cert, sizeof(cert));
+
+  for (i = 0; i < certs->num_obj; i++) {
+    DER *d = &certs->obj[i];
+
+    chdr.cert_len_hi = 0;
+    chdr.cert_len = htobe16(d->der_len);
+
+    if (!tls_tx_push(ssl, &chdr, sizeof(chdr))) return 0;
+    tls_add_handshake_to_hash(ssl, &chdr, sizeof(chdr));
+    if (!tls_tx_push(ssl, d->der, d->der_len)) return 0;
+    tls_add_handshake_to_hash(ssl, d->der, d->der_len);
+  }
+
+  return 1;
 }
 
 NS_INTERNAL ssize_t tls_write(SSL *ssl, const uint8_t *buf, size_t sz) {

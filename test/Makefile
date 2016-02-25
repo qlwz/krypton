@@ -6,6 +6,7 @@
 CFLAGS := -O0 -W -Wall -Werror -g -I.. -I../.. \
           -DKRYPTON_DEBUG -DDEBUG_VERIFY -DNS_MODULE_LINES \
           $(CFLAGS_EXTRA)
+OPENSSL_FLAGS := -lssl -lcrypto
 
 ifdef ASAN
 CC = clang-3.6
@@ -20,10 +21,10 @@ unit-test: unit-test.c ../krypton.c ../../common/test_util.c ../../common/cs_tim
 	$(CC) $(CFLAGS) -DNS_INTERNAL= -I../src -o unit-test $^
 
 sv-test-openssl: sv-test.c
-	$(CC) $(CFLAGS) -o sv-test-openssl $^ -lssl -lcrypto
+	$(CC) $(CFLAGS) -o sv-test-openssl $^ $(OPENSSL_FLAGS)
 
 cl-test-openssl: cl-test.c
-	$(CC) $(CFLAGS) -o cl-test-openssl $^ -lssl -lcrypto
+	$(CC) $(CFLAGS) -o cl-test-openssl $^ $(OPENSSL_FLAGS)
 
 %-test-krypton: CFLAGS += -DUSE_KRYPTON=1 -I.
 
@@ -42,9 +43,10 @@ endif
 
 run-tests: tests
 	./unit-test
-	./sv-test-openssl & ./cl-test-krypton
-	./sv-test-krypton & ./cl-test-openssl
-	./sv-test-krypton & ./cl-test-krypton
+	./sv-test-openssl & ./cl-test-krypton -a ca.pem -n
+	./sv-test-openssl -a ca.pem & ./cl-test-krypton -a ca.pem -n -c client.pem -k client.key
+	./sv-test-krypton & ./cl-test-openssl -a ca.pem
+	./sv-test-krypton & ./cl-test-krypton -a ca.pem -n
 
 clean:
 	rm -f cl-test-* sv-test-* unit-test

@@ -49,6 +49,9 @@ NS_INTERNAL int tls_tx_push(SSL *ssl, const void *data, size_t len);
 NS_INTERNAL ssize_t tls_write(SSL *ssl, const uint8_t *buf, size_t sz);
 NS_INTERNAL int tls_alert(SSL *ssl, uint8_t level, uint8_t desc);
 NS_INTERNAL int tls_close_notify(SSL *ssl);
+NS_INTERNAL void tls_add_handshake_to_hash(SSL *ssl, const void *data,
+                                           size_t len);
+NS_INTERNAL int tls_send_certs(SSL *ssl, const PEM *certs);
 
 /* client */
 NS_INTERNAL int tls_cl_finish(SSL *ssl);

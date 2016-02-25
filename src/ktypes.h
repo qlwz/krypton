@@ -177,14 +177,15 @@ struct ssl_st {
 
   uint8_t vrfy_result;
 
-  uint8_t mode_defined : 1;
-  uint8_t is_server : 1;
-  uint8_t got_appdata : 1;
-  uint8_t tx_enc : 1;
-  uint8_t rx_enc : 1;
-  uint8_t close_notify : 1;
-  uint8_t fatal : 1;
-  uint8_t write_pending : 1;
+  unsigned int mode_defined : 1;
+  unsigned int is_server : 1;
+  unsigned int got_appdata : 1;
+  unsigned int tx_enc : 1;
+  unsigned int rx_enc : 1;
+  unsigned int close_notify : 1;
+  unsigned int fatal : 1;
+  unsigned int write_pending : 1;
+  unsigned int cert_requested : 1;
 };
 
 NS_INTERNAL void ssl_err(struct ssl_st *ssl, int err);

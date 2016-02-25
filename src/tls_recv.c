@@ -91,11 +91,8 @@ static int handle_hello(SSL *ssl, const struct tls_hdr *hdr, const uint8_t *buf,
 
   buf += 2;
 
-  if (proto != 0x0303    /* TLS v1.2 */
-      && proto != 0x0302 /* TLS v1.1 */
-      && proto != 0x0301 /* TLS v1.0 */
-      && proto != 0x0300 /* SSL 3.0 */
-      ) {
+  if (proto != TLS_1_2_PROTO && proto != TLS_1_1_PROTO &&
+      proto != TLS_1_0_PROTO && proto != SSL_3_0_PROTO) {
     dprintf(("bad prot version: %04x\n", proto));
     goto bad_vers;
   }
@@ -477,67 +474,69 @@ static int handle_sv_handshake(SSL *ssl, const struct tls_hdr *hdr,
       return 0;
   }
 
-  if (ssl->nxt) {
-    SHA256_Update(&ssl->nxt->handshakes_hash, buf, end - buf);
-  } else if (ssl->cur) {
-    SHA256_Update(&ssl->cur->handshakes_hash, buf, end - buf);
-  }
+  tls_add_handshake_to_hash(ssl, buf, end - buf);
 
   return ret;
 }
 
 static int handle_cl_handshake(SSL *ssl, const struct tls_hdr *hdr,
                                const uint8_t *buf, const uint8_t *end) {
-  uint8_t type;
   int ret = 1;
 
-  if (buf + 1 > end) return 0;
+  while (buf < end) {
+    uint8_t type;
+    uint32_t len;
+    if (buf + 4 > end) return 0;
 
-  type = buf[0];
+    type = buf[0];
+    len = kr_load_be32(buf) & 0xffffff;
+    if (buf + len > end) return 0;
 
-  switch (type) {
-    case HANDSHAKE_HELLO_REQ:
-      dprintf(("hello req\n"));
-      break;
-    case HANDSHAKE_SERVER_HELLO:
-      dprintf(("server hello\n"));
-      ret = handle_hello(ssl, hdr, buf, end);
-      break;
-    case HANDSHAKE_NEW_SESSION_TICKET:
-      dprintf(("new session ticket\n"));
-      break;
-    case HANDSHAKE_CERTIFICATE:
-      dprintf(("certificate\n"));
-      ret = handle_certificate(ssl, hdr, buf, end);
-      break;
-    case HANDSHAKE_SERVER_KEY_EXCH:
-      dprintf(("server key exch\n"));
-      ret = handle_key_exch(ssl, hdr, buf, end);
-      break;
-    case HANDSHAKE_CERTIFICATE_REQ:
-      dprintf(("cert req\n"));
-      ssl->state = STATE_SV_DONE_RCVD;
-      break;
-    case HANDSHAKE_SERVER_HELLO_DONE:
-      dprintf(("hello done\n"));
-      ssl->state = STATE_SV_DONE_RCVD;
-      break;
-    case HANDSHAKE_CERTIFICATE_VRFY:
-      dprintf(("cert verify\n"));
-      break;
-    case HANDSHAKE_FINISHED:
-      ret = handle_finished(ssl, hdr, buf, end);
-      break;
-    default:
-      dprintf(("unknown type 0x%.2x (encrypted?)\n", type));
-      tls_alert(ssl, ALERT_LEVEL_FATAL, ALERT_UNEXPECTED_MESSAGE);
-      return 0;
-  }
-
-  if (ssl->nxt) {
-    SHA256_Update(&ssl->nxt->handshakes_hash, buf, end - buf);
-  } else if (ssl->cur) {
-    SHA256_Update(&ssl->cur->handshakes_hash, buf, end - buf);
+    switch (type) {
+      case HANDSHAKE_HELLO_REQ:
+        dprintf(("hello req\n"));
+        break;
+      case HANDSHAKE_SERVER_HELLO:
+        dprintf(("server hello\n"));
+        ret = handle_hello(ssl, hdr, buf, end);
+        break;
+      case HANDSHAKE_NEW_SESSION_TICKET:
+        dprintf(("new session ticket\n"));
+        break;
+      case HANDSHAKE_CERTIFICATE:
+        dprintf(("certificate\n"));
+        ret = handle_certificate(ssl, hdr, buf, end);
+        break;
+      case HANDSHAKE_SERVER_KEY_EXCH:
+        dprintf(("server key exch\n"));
+        ret = handle_key_exch(ssl, hdr, buf, end);
+        break;
+      case HANDSHAKE_CERTIFICATE_REQ:
+        dprintf(("cert req\n"));
+        /*
+         * At present we don't look at server's requirements at all and just
+         * blindly send our cert(s) and a SHA256 verify message, hoping
+         * server will understand.
+         * TODO(rojer): Be smarter.
+         */
+        ssl->cert_requested = 1;
+        break;
+      case HANDSHAKE_SERVER_HELLO_DONE:
+        dprintf(("hello done\n"));
+        ssl->state = STATE_SV_DONE_RCVD;
+        break;
+      case HANDSHAKE_FINISHED:
+        ret = handle_finished(ssl, hdr, buf, end);
+        break;
+      default:
+        dprintf(("unknown type 0x%.2x (encrypted?)\n", type));
+        tls_alert(ssl, ALERT_LEVEL_FATAL, ALERT_UNEXPECTED_MESSAGE);
+        return 0;
+    }
+    if (type != HANDSHAKE_HELLO_REQ) {
+      tls_add_handshake_to_hash(ssl, buf, len + 4);
+    }
+    buf += len + 4;
   }
 
   return ret;
@@ -610,7 +609,7 @@ static int handle_alert(SSL *ssl, const struct tls_hdr *hdr, const uint8_t *buf,
   (void) hdr;
   switch (buf[1]) {
     case ALERT_CLOSE_NOTIFY:
-      dprintf(("recieved close notify\n"));
+      dprintf(("received close notify\n"));
       if (!ssl->close_notify && ssl->state != STATE_CLOSING) {
         dprintf((" + replying\n"));
         tls_alert(ssl, buf[0], buf[1]);
@@ -761,11 +760,10 @@ int tls_handle_recv(SSL *ssl, uint8_t *out, size_t out_len) {
     msg = buf + sizeof(*hdr);
 
     /* check known ssl/tls versions */
-    if (hdr->vers != htobe16(0x0303)    /* TLS v1.2 */
-        && hdr->vers != htobe16(0x0302) /* TLS v1.1 */
-        && hdr->vers != htobe16(0x0301) /* TLS v1.0 */
-        && hdr->vers != htobe16(0x0300) /* SSL 3.0 */
-        ) {
+    if (hdr->vers != htobe16(TLS_1_2_PROTO) &&
+        hdr->vers != htobe16(TLS_1_1_PROTO) &&
+        hdr->vers != htobe16(TLS_1_0_PROTO) &&
+        hdr->vers != htobe16(SSL_3_0_PROTO)) {
       dprintf(("bad framing version: 0x%.4x\n", be16toh(hdr->vers)));
       ssl->rx_len = 0;
       return 0;

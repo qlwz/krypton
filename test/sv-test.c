@@ -24,7 +24,7 @@
 #define TEST_PORT 4343
 
 static SSL_CTX *setup_ctx(const char *cert_file, const char *key_file,
-                          const char *cipher) {
+                          const char *ca_file, const char *cipher) {
   SSL_CTX *ctx;
 
   (void) cipher;
@@ -33,15 +33,26 @@ static SSL_CTX *setup_ctx(const char *cert_file, const char *key_file,
   if (NULL == ctx) goto out;
 
   SSL_CTX_set_mode(ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
-
-  if (!SSL_CTX_use_certificate_chain_file(ctx, cert_file)) {
-    fprintf(stderr, "%s: err loading cert file\n", cert_file);
-    goto out_free;
+  if (ca_file != NULL) {
+    if (!SSL_CTX_load_verify_locations(ctx, ca_file, NULL)) {
+      fprintf(stderr, "%s: err loading ca file\n", ca_file);
+      goto out_free;
+    }
+    SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER | SSL_VERIFY_CLIENT_ONCE |
+                                SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
+                       NULL);
   }
 
-  if (!SSL_CTX_use_PrivateKey_file(ctx, key_file, SSL_FILETYPE_PEM)) {
-    fprintf(stderr, "%s: err loading key file\n", key_file);
-    goto out_free;
+  if (cert_file && key_file) {
+    if (!SSL_CTX_use_certificate_chain_file(ctx, cert_file)) {
+      fprintf(stderr, "%s: err loading cert file\n", cert_file);
+      goto out_free;
+    }
+
+    if (!SSL_CTX_use_PrivateKey_file(ctx, key_file, SSL_FILETYPE_PEM)) {
+      fprintf(stderr, "%s: err loading key file\n", key_file);
+      goto out_free;
+    }
   }
 
 #ifdef OPENSSL_VERSION_NUMBER
@@ -181,7 +192,7 @@ static void ns_set_non_blocking_mode(int sock) {
 }
 
 static int do_test(const char *cert_file, const char *key_file,
-                   const char *cipher) {
+                   const char *ca_file, const char *cipher) {
   struct sockaddr_in sa;
   socklen_t slen;
   SSL_CTX *ctx;
@@ -189,7 +200,7 @@ static int do_test(const char *cert_file, const char *key_file,
   int ret = 0;
   int fd, cfd;
 
-  ctx = setup_ctx(cert_file, key_file, cipher);
+  ctx = setup_ctx(cert_file, key_file, ca_file, cipher);
   if (NULL == ctx) goto out;
 
   ssl = SSL_new(ctx);
@@ -263,15 +274,26 @@ out:
 int main(int argc, char **argv) {
   int opt;
   const char *cipher = NULL;
-  while ((opt = getopt(argc, argv, "c:")) != -1) {
+  const char *server_cert_file = "server.pem", *server_key_file = "server.key";
+  const char *client_ca_file = NULL;
+  while ((opt = getopt(argc, argv, "a:C:c:k:")) != -1) {
     switch (opt) {
-      case 'c':
+      case 'a':
+        client_ca_file = optarg;
+        break;
+      case 'C':
         cipher = optarg;
+        break;
+      case 'c':
+        server_cert_file = optarg;
+        break;
+      case 'k':
+        server_key_file = optarg;
         break;
     }
   }
   SSL_library_init();
-  if (!do_test("server.pem", "server.key", cipher)) {
+  if (!do_test(server_cert_file, server_key_file, client_ca_file, cipher)) {
     fprintf(stderr, "sv-test failure\n");
     return EXIT_FAILURE;
   }

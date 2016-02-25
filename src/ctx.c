@@ -122,10 +122,10 @@ out:
 
 int SSL_CTX_use_certificate_chain_file(SSL_CTX *ctx, const char *file) {
   int ret = 0;
-  PEM *p;
+  PEM *p = NULL;
 
   p = pem_load_types(file, PEM_SIG_CERT);
-  if (NULL == p) goto out;
+  if (p == NULL) goto out;
 
   pem_free(ctx->pem_cert);
   ctx->pem_cert = p;
@@ -136,7 +136,7 @@ out:
 
 int SSL_CTX_use_certificate_file(SSL_CTX *ctx, const char *file, int type) {
   int ret = 0;
-  PEM *p;
+  PEM *p = NULL;
 
   if (type != SSL_FILETYPE_PEM) {
     /* XXX: SSL_error */
@@ -144,7 +144,7 @@ int SSL_CTX_use_certificate_file(SSL_CTX *ctx, const char *file, int type) {
   }
 
   p = pem_load_types(file, PEM_SIG_CERT);
-  if (NULL == p) goto out;
+  if (p == NULL) goto out;
 
   pem_free(ctx->pem_cert);
   ctx->pem_cert = p;
@@ -200,7 +200,10 @@ int SSL_CTX_use_PrivateKey_file(SSL_CTX *ctx, const char *file, int type) {
   int ret = 0;
   PEM *pem;
 
-  (void) type;
+  if (type != SSL_FILETYPE_PEM) {
+    return 0;
+  }
+
   pem = pem_load_types(file, PEM_SIG_KEY | PEM_SIG_RSA_KEY);
   if (NULL == pem) goto out;
 

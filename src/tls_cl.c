@@ -50,8 +50,6 @@ NS_INTERNAL int tls_cl_hello(SSL *ssl) {
   hello.ext_reneg.ri_len = 0;
 
   if (!tls_send(ssl, TLS_HANDSHAKE, &hello, sizeof(hello))) return 0;
-  SHA256_Update(&ssl->nxt->handshakes_hash, ((uint8_t *) &hello),
-                sizeof(hello));
 
   /* store the random we generated */
   memcpy(&ssl->nxt->cl_rnd, &hello.random, sizeof(ssl->nxt->cl_rnd));
@@ -94,7 +92,46 @@ NS_INTERNAL int tls_cl_finish(SSL *ssl) {
   set16(buf + 2, buf_len - 4);
   set16(buf + 4, buf_len - 6);
   if (!tls_send(ssl, TLS_HANDSHAKE, buf, buf_len)) return 0;
-  SHA256_Update(&ssl->nxt->handshakes_hash, buf, buf_len);
+
+  /* cert verify, if required */
+  if (ssl->cert_requested && ssl->ctx->pem_cert != NULL) {
+    SHA256_CTX tmp_hash;
+    uint8_t tmp_digest[SHA256_SIZE + 19];
+    uint8_t *p = buf;
+    *p++ = HANDSHAKE_CERTIFICATE_VRFY;
+    *p++ = 0;
+    buf_len = 2 + 2 + RSA_block_size(ssl->ctx->rsa_privkey);
+    set16(p, buf_len);
+    p += 2;
+    *p++ = TLS_HASH_SHA256;
+    *p++ = TLS_SIG_RSA;
+    memcpy(&tmp_hash, &ssl->nxt->handshakes_hash, sizeof(tmp_hash));
+    /*
+     * This is the RSASSA-PKCS1-v1_5 header for a SHA256 digest,
+     * and translates from ASN.1-speak as follows:\
+     * SEQUENCE (2 elem)
+     *   SEQUENCE (2 elem)
+     *     OBJECT IDENTIFIER  2.16.840.1.101.3.4.2.1  (id-sha256)
+     *     NULL
+     *   OCTET STRING (32 byte)
+     */
+    memcpy(tmp_digest,
+           "\x30\x31\x30\x0D\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x01\x05"
+           "\x00\x04\x20",
+           19);
+    SHA256_Final(tmp_digest + 19, &tmp_hash);
+    set16(p, RSA_block_size(ssl->ctx->rsa_privkey));
+    p += 2;
+    if (RSA_encrypt(ssl->ctx->rsa_privkey, tmp_digest, sizeof(tmp_digest), p,
+                    1 /* is_signing */) !=
+        RSA_block_size(ssl->ctx->rsa_privkey)) {
+      dprintf(("RSA sign failed\n"));
+      ssl_err(ssl, SSL_ERROR_SSL);
+      return 0;
+    }
+    p += RSA_block_size(ssl->ctx->rsa_privkey);
+    if (!tls_send(ssl, TLS_HANDSHAKE, buf, p - buf)) return 0;
+  }
 
   /* change cipher spec */
   cipher.one = 1;
@@ -115,9 +152,6 @@ NS_INTERNAL int tls_cl_finish(SSL *ssl) {
   tls_generate_client_finished(ssl->cur, finished.vrfy, sizeof(finished.vrfy));
 
   if (!tls_send(ssl, TLS_HANDSHAKE, &finished, sizeof(finished))) return 0;
-
-  SHA256_Update(&ssl->cur->handshakes_hash, ((uint8_t *) &finished),
-                sizeof(finished));
 
   return 1;
 }

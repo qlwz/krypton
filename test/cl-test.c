@@ -25,9 +25,8 @@
 #define TEST_ADDR "localhost:4343"
 #define DEFAULT_PORT "443"
 
-static int s_verify_server_name = 0;
-
-static SSL_CTX *setup_ctx(const char *cert_chain, const char *cipher) {
+static SSL_CTX *setup_ctx(const char *ca_file, const char *cert_file,
+                          const char *key_file, const char *cipher) {
   SSL_CTX *ctx;
 
   (void) cipher;
@@ -41,14 +40,32 @@ static SSL_CTX *setup_ctx(const char *cert_chain, const char *cipher) {
   SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
                      NULL);
 
-  if (!SSL_CTX_load_verify_locations(ctx, cert_chain, NULL)) goto out_free;
+  if (!SSL_CTX_load_verify_locations(ctx, ca_file, NULL)) {
+    fprintf(stderr, "%s: err loading ca file\n", ca_file);
+    goto out_free;
+  }
 
-#ifdef OPENSSL_VERSION_NUMBER
+  if (cert_file && key_file) {
+    if (!SSL_CTX_use_certificate_chain_file(ctx, cert_file)) {
+      fprintf(stderr, "%s: err loading cert file\n", cert_file);
+      goto out_free;
+    }
+
+    if (!SSL_CTX_use_PrivateKey_file(ctx, key_file, SSL_FILETYPE_PEM)) {
+      fprintf(stderr, "%s: err loading key file\n", key_file);
+      goto out_free;
+    }
+  }
+
   if (cipher != NULL) {
+#ifdef OPENSSL_VERSION_NUMBER
     SSL_CTX_set_cipher_list(ctx, cipher);
     fprintf(stderr, "Cipher spec: %s\n", cipher);
-  }
+#else
+    fprintf(stderr, "Krypton doesn't support setting cipher spec\n");
+    goto out_free;
 #endif
+  }
   goto out;
 
 out_free:
@@ -179,7 +196,8 @@ static void ns_set_non_blocking_mode(int sock) {
 }
 
 static int do_test(const char *caddr, const char *cert_chain,
-                   const char *cipher) {
+                   const char *client_cert, const char *client_key,
+                   const char *cipher, int verify_server_name) {
   struct addrinfo hints, *rp;
   struct pollfd pfd;
   char *addr = strdup(caddr);
@@ -214,10 +232,10 @@ static int do_test(const char *caddr, const char *cert_chain,
     goto out;
   }
 
-  ctx = setup_ctx(cert_chain, cipher);
+  ctx = setup_ctx(cert_chain, client_cert, client_key, cipher);
   if (NULL == ctx) goto out;
 
-  if (s_verify_server_name) {
+  if (verify_server_name) {
 #if USE_KRYPTON
     if (!SSL_CTX_kr_set_verify_name(ctx, addr)) goto out_ctx;
 #endif
@@ -279,20 +297,29 @@ out:
 int main(int argc, char **argv) {
   int opt;
   const char *addr = NULL, *cipher = NULL;
-  const char *ca_file = "ca.pem";
-  while ((opt = getopt(argc, argv, "a:c:n")) != -1) {
+  const char *client_cert_file = NULL, *client_key_file = NULL;
+  const char *ca_file = NULL;
+  int verify_server_name = 0;
+  while ((opt = getopt(argc, argv, "a:C:c:k:n")) != -1) {
     switch (opt) {
       case 'a':
         ca_file = optarg;
         break;
-      case 'c':
+      case 'C':
         cipher = optarg;
         break;
+      case 'c':
+        client_cert_file = optarg;
+        break;
+      case 'k':
+        client_key_file = optarg;
+        break;
       case 'n':
-        s_verify_server_name = 1;
+        verify_server_name = 1;
         break;
     }
   }
+  if (client_key_file == NULL) client_key_file = client_cert_file;
   if (optind < argc) {
     addr = argv[optind];
   } else {
@@ -300,6 +327,9 @@ int main(int argc, char **argv) {
   }
   SSL_library_init();
   usleep(100000);
-  if (!do_test(addr, ca_file, cipher)) return EXIT_FAILURE;
+  if (!do_test(addr, ca_file, client_cert_file, client_key_file, cipher,
+               verify_server_name)) {
+    return EXIT_FAILURE;
+  }
   return EXIT_SUCCESS;
 }

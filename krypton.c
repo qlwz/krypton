@@ -255,14 +255,15 @@ struct ssl_st {
 
   uint8_t vrfy_result;
 
-  uint8_t mode_defined : 1;
-  uint8_t is_server : 1;
-  uint8_t got_appdata : 1;
-  uint8_t tx_enc : 1;
-  uint8_t rx_enc : 1;
-  uint8_t close_notify : 1;
-  uint8_t fatal : 1;
-  uint8_t write_pending : 1;
+  unsigned int mode_defined : 1;
+  unsigned int is_server : 1;
+  unsigned int got_appdata : 1;
+  unsigned int tx_enc : 1;
+  unsigned int rx_enc : 1;
+  unsigned int close_notify : 1;
+  unsigned int fatal : 1;
+  unsigned int write_pending : 1;
+  unsigned int cert_requested : 1;
 };
 
 NS_INTERNAL void ssl_err(struct ssl_st *ssl, int err);
@@ -401,6 +402,19 @@ struct tls_alert {
   uint8_t desc;
 } __packed;
 #pragma pack()
+
+enum TLS_HashAlgorithm {
+  TLS_HASH_SHA256 = 4,
+};
+
+enum TLS_SignatureAlgorithm {
+  TLS_SIG_RSA = 1,
+};
+
+#define TLS_1_2_PROTO 0x0303
+#define TLS_1_1_PROTO 0x0302
+#define TLS_1_0_PROTO 0x0301
+#define SSL_3_0_PROTO 0x0300
 
 #define TLS_CHANGE_CIPHER_SPEC 20
 #define TLS_ALERT 21
@@ -920,6 +934,9 @@ NS_INTERNAL int tls_tx_push(SSL *ssl, const void *data, size_t len);
 NS_INTERNAL ssize_t tls_write(SSL *ssl, const uint8_t *buf, size_t sz);
 NS_INTERNAL int tls_alert(SSL *ssl, uint8_t level, uint8_t desc);
 NS_INTERNAL int tls_close_notify(SSL *ssl);
+NS_INTERNAL void tls_add_handshake_to_hash(SSL *ssl, const void *data,
+                                           size_t len);
+NS_INTERNAL int tls_send_certs(SSL *ssl, const PEM *certs);
 
 /* client */
 NS_INTERNAL int tls_cl_finish(SSL *ssl);
@@ -2887,10 +2904,10 @@ out:
 
 int SSL_CTX_use_certificate_chain_file(SSL_CTX *ctx, const char *file) {
   int ret = 0;
-  PEM *p;
+  PEM *p = NULL;
 
   p = pem_load_types(file, PEM_SIG_CERT);
-  if (NULL == p) goto out;
+  if (p == NULL) goto out;
 
   pem_free(ctx->pem_cert);
   ctx->pem_cert = p;
@@ -2901,7 +2918,7 @@ out:
 
 int SSL_CTX_use_certificate_file(SSL_CTX *ctx, const char *file, int type) {
   int ret = 0;
-  PEM *p;
+  PEM *p = NULL;
 
   if (type != SSL_FILETYPE_PEM) {
     /* XXX: SSL_error */
@@ -2909,7 +2926,7 @@ int SSL_CTX_use_certificate_file(SSL_CTX *ctx, const char *file, int type) {
   }
 
   p = pem_load_types(file, PEM_SIG_CERT);
-  if (NULL == p) goto out;
+  if (p == NULL) goto out;
 
   pem_free(ctx->pem_cert);
   ctx->pem_cert = p;
@@ -2965,7 +2982,10 @@ int SSL_CTX_use_PrivateKey_file(SSL_CTX *ctx, const char *file, int type) {
   int ret = 0;
   PEM *pem;
 
-  (void) type;
+  if (type != SSL_FILETYPE_PEM) {
+    return 0;
+  }
+
   pem = pem_load_types(file, PEM_SIG_KEY | PEM_SIG_RSA_KEY);
   if (NULL == pem) goto out;
 
@@ -5944,6 +5964,21 @@ int SSL_connect(SSL *ssl) {
 
     /* fall through */
     case STATE_SV_DONE_RCVD:
+      if (ssl->cert_requested) {
+        const PEM *cert = ssl->ctx->pem_cert;
+        PEM empty;
+        if (ssl->ctx->pem_cert == NULL) {
+          dprintf(("warning: client cert requested but none is provided\n"));
+          /* We still need to send an empty message. */
+          memset(&empty, 0, sizeof(empty));
+          cert = &empty;
+        }
+        if (!tls_send_certs(ssl, cert)) {
+          dprintf(("failed to send client certs\n"));
+          ssl_err(ssl, SSL_ERROR_SYSCALL);
+          return -1;
+        }
+      }
       if (!tls_cl_finish(ssl)) {
         dprintf(("failed to construct key exchange\n"));
         ssl_err(ssl, SSL_ERROR_SYSCALL);
@@ -6322,7 +6357,7 @@ NS_INTERNAL int tls_send_enc(SSL *ssl, uint8_t type, const void *buf,
   }
 
   hdr.type = type;
-  hdr.vers = htobe16(0x0303);
+  hdr.vers = htobe16(TLS_1_2_PROTO);
   hdr.len = 0; /* will fill in at the end. */
 
   hdr_offset = ssl->tx_len;
@@ -6397,6 +6432,10 @@ NS_INTERNAL int tls_send_enc(SSL *ssl, uint8_t type, const void *buf,
 }
 
 NS_INTERNAL int tls_send(SSL *ssl, uint8_t type, const void *buf, size_t len) {
+  if (type == TLS_HANDSHAKE &&
+      ((const uint8_t *) buf)[0] != HANDSHAKE_HELLO_REQ) {
+    tls_add_handshake_to_hash(ssl, buf, len);
+  }
   if (ssl->tx_enc) {
     return tls_send_enc(ssl, type, buf, len);
   } else {
@@ -6404,7 +6443,7 @@ NS_INTERNAL int tls_send(SSL *ssl, uint8_t type, const void *buf, size_t len) {
     size_t max = (1 << 14);
     if (len > max) len = max;
     hdr.type = type;
-    hdr.vers = htobe16(0x0303);
+    hdr.vers = htobe16(TLS_1_2_PROTO);
     hdr.len = htobe16(len);
 
     if (!tls_tx_push(ssl, &hdr, sizeof(hdr))) return 0;
@@ -6412,6 +6451,55 @@ NS_INTERNAL int tls_send(SSL *ssl, uint8_t type, const void *buf, size_t len) {
 
     return len;
   }
+}
+
+NS_INTERNAL void tls_add_handshake_to_hash(SSL *ssl, const void *data,
+                                           size_t len) {
+  if (ssl->cur) SHA256_Update(&ssl->cur->handshakes_hash, data, len);
+  if (ssl->nxt) SHA256_Update(&ssl->nxt->handshakes_hash, data, len);
+}
+
+NS_INTERNAL int tls_send_certs(SSL *ssl, const PEM *certs) {
+  unsigned int i;
+  struct tls_hdr hdr;
+  struct tls_cert cert;
+  struct tls_cert_hdr chdr;
+
+  if (certs == NULL) return 0;
+
+  dprintf(("sending %d certs\n", (int) certs->num_obj));
+
+  hdr.type = TLS_HANDSHAKE;
+  hdr.vers = htobe16(TLS_1_2_PROTO);
+  hdr.len =
+      htobe16(sizeof(cert) + sizeof(chdr) * certs->num_obj + certs->tot_len);
+
+  if (!tls_tx_push(ssl, &hdr, sizeof(hdr))) return 0;
+
+  cert.type = HANDSHAKE_CERTIFICATE;
+  cert.len_hi = 0;
+  cert.len =
+      htobe16(sizeof(chdr) + sizeof(chdr) * certs->num_obj + certs->tot_len);
+  cert.certs_len_hi = 0;
+  cert.certs_len = htobe16(sizeof(chdr) * certs->num_obj + certs->tot_len);
+
+  if (!tls_tx_push(ssl, &cert, sizeof(cert))) return 0;
+
+  tls_add_handshake_to_hash(ssl, &cert, sizeof(cert));
+
+  for (i = 0; i < certs->num_obj; i++) {
+    DER *d = &certs->obj[i];
+
+    chdr.cert_len_hi = 0;
+    chdr.cert_len = htobe16(d->der_len);
+
+    if (!tls_tx_push(ssl, &chdr, sizeof(chdr))) return 0;
+    tls_add_handshake_to_hash(ssl, &chdr, sizeof(chdr));
+    if (!tls_tx_push(ssl, d->der, d->der_len)) return 0;
+    tls_add_handshake_to_hash(ssl, d->der, d->der_len);
+  }
+
+  return 1;
 }
 
 NS_INTERNAL ssize_t tls_write(SSL *ssl, const uint8_t *buf, size_t sz) {
@@ -6490,8 +6578,6 @@ NS_INTERNAL int tls_cl_hello(SSL *ssl) {
   hello.ext_reneg.ri_len = 0;
 
   if (!tls_send(ssl, TLS_HANDSHAKE, &hello, sizeof(hello))) return 0;
-  SHA256_Update(&ssl->nxt->handshakes_hash, ((uint8_t *) &hello),
-                sizeof(hello));
 
   /* store the random we generated */
   memcpy(&ssl->nxt->cl_rnd, &hello.random, sizeof(ssl->nxt->cl_rnd));
@@ -6534,7 +6620,46 @@ NS_INTERNAL int tls_cl_finish(SSL *ssl) {
   set16(buf + 2, buf_len - 4);
   set16(buf + 4, buf_len - 6);
   if (!tls_send(ssl, TLS_HANDSHAKE, buf, buf_len)) return 0;
-  SHA256_Update(&ssl->nxt->handshakes_hash, buf, buf_len);
+
+  /* cert verify, if required */
+  if (ssl->cert_requested && ssl->ctx->pem_cert != NULL) {
+    SHA256_CTX tmp_hash;
+    uint8_t tmp_digest[SHA256_SIZE + 19];
+    uint8_t *p = buf;
+    *p++ = HANDSHAKE_CERTIFICATE_VRFY;
+    *p++ = 0;
+    buf_len = 2 + 2 + RSA_block_size(ssl->ctx->rsa_privkey);
+    set16(p, buf_len);
+    p += 2;
+    *p++ = TLS_HASH_SHA256;
+    *p++ = TLS_SIG_RSA;
+    memcpy(&tmp_hash, &ssl->nxt->handshakes_hash, sizeof(tmp_hash));
+    /*
+     * This is the RSASSA-PKCS1-v1_5 header for a SHA256 digest,
+     * and translates from ASN.1-speak as follows:\
+     * SEQUENCE (2 elem)
+     *   SEQUENCE (2 elem)
+     *     OBJECT IDENTIFIER  2.16.840.1.101.3.4.2.1  (id-sha256)
+     *     NULL
+     *   OCTET STRING (32 byte)
+     */
+    memcpy(tmp_digest,
+           "\x30\x31\x30\x0D\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x01\x05"
+           "\x00\x04\x20",
+           19);
+    SHA256_Final(tmp_digest + 19, &tmp_hash);
+    set16(p, RSA_block_size(ssl->ctx->rsa_privkey));
+    p += 2;
+    if (RSA_encrypt(ssl->ctx->rsa_privkey, tmp_digest, sizeof(tmp_digest), p,
+                    1 /* is_signing */) !=
+        RSA_block_size(ssl->ctx->rsa_privkey)) {
+      dprintf(("RSA sign failed\n"));
+      ssl_err(ssl, SSL_ERROR_SSL);
+      return 0;
+    }
+    p += RSA_block_size(ssl->ctx->rsa_privkey);
+    if (!tls_send(ssl, TLS_HANDSHAKE, buf, p - buf)) return 0;
+  }
 
   /* change cipher spec */
   cipher.one = 1;
@@ -6555,9 +6680,6 @@ NS_INTERNAL int tls_cl_finish(SSL *ssl) {
   tls_generate_client_finished(ssl->cur, finished.vrfy, sizeof(finished.vrfy));
 
   if (!tls_send(ssl, TLS_HANDSHAKE, &finished, sizeof(finished))) return 0;
-
-  SHA256_Update(&ssl->cur->handshakes_hash, ((uint8_t *) &finished),
-                sizeof(finished));
 
   return 1;
 }
@@ -6657,11 +6779,8 @@ static int handle_hello(SSL *ssl, const struct tls_hdr *hdr, const uint8_t *buf,
 
   buf += 2;
 
-  if (proto != 0x0303    /* TLS v1.2 */
-      && proto != 0x0302 /* TLS v1.1 */
-      && proto != 0x0301 /* TLS v1.0 */
-      && proto != 0x0300 /* SSL 3.0 */
-      ) {
+  if (proto != TLS_1_2_PROTO && proto != TLS_1_1_PROTO &&
+      proto != TLS_1_0_PROTO && proto != SSL_3_0_PROTO) {
     dprintf(("bad prot version: %04x\n", proto));
     goto bad_vers;
   }
@@ -7043,67 +7162,69 @@ static int handle_sv_handshake(SSL *ssl, const struct tls_hdr *hdr,
       return 0;
   }
 
-  if (ssl->nxt) {
-    SHA256_Update(&ssl->nxt->handshakes_hash, buf, end - buf);
-  } else if (ssl->cur) {
-    SHA256_Update(&ssl->cur->handshakes_hash, buf, end - buf);
-  }
+  tls_add_handshake_to_hash(ssl, buf, end - buf);
 
   return ret;
 }
 
 static int handle_cl_handshake(SSL *ssl, const struct tls_hdr *hdr,
                                const uint8_t *buf, const uint8_t *end) {
-  uint8_t type;
   int ret = 1;
 
-  if (buf + 1 > end) return 0;
+  while (buf < end) {
+    uint8_t type;
+    uint32_t len;
+    if (buf + 4 > end) return 0;
 
-  type = buf[0];
+    type = buf[0];
+    len = kr_load_be32(buf) & 0xffffff;
+    if (buf + len > end) return 0;
 
-  switch (type) {
-    case HANDSHAKE_HELLO_REQ:
-      dprintf(("hello req\n"));
-      break;
-    case HANDSHAKE_SERVER_HELLO:
-      dprintf(("server hello\n"));
-      ret = handle_hello(ssl, hdr, buf, end);
-      break;
-    case HANDSHAKE_NEW_SESSION_TICKET:
-      dprintf(("new session ticket\n"));
-      break;
-    case HANDSHAKE_CERTIFICATE:
-      dprintf(("certificate\n"));
-      ret = handle_certificate(ssl, hdr, buf, end);
-      break;
-    case HANDSHAKE_SERVER_KEY_EXCH:
-      dprintf(("server key exch\n"));
-      ret = handle_key_exch(ssl, hdr, buf, end);
-      break;
-    case HANDSHAKE_CERTIFICATE_REQ:
-      dprintf(("cert req\n"));
-      ssl->state = STATE_SV_DONE_RCVD;
-      break;
-    case HANDSHAKE_SERVER_HELLO_DONE:
-      dprintf(("hello done\n"));
-      ssl->state = STATE_SV_DONE_RCVD;
-      break;
-    case HANDSHAKE_CERTIFICATE_VRFY:
-      dprintf(("cert verify\n"));
-      break;
-    case HANDSHAKE_FINISHED:
-      ret = handle_finished(ssl, hdr, buf, end);
-      break;
-    default:
-      dprintf(("unknown type 0x%.2x (encrypted?)\n", type));
-      tls_alert(ssl, ALERT_LEVEL_FATAL, ALERT_UNEXPECTED_MESSAGE);
-      return 0;
-  }
-
-  if (ssl->nxt) {
-    SHA256_Update(&ssl->nxt->handshakes_hash, buf, end - buf);
-  } else if (ssl->cur) {
-    SHA256_Update(&ssl->cur->handshakes_hash, buf, end - buf);
+    switch (type) {
+      case HANDSHAKE_HELLO_REQ:
+        dprintf(("hello req\n"));
+        break;
+      case HANDSHAKE_SERVER_HELLO:
+        dprintf(("server hello\n"));
+        ret = handle_hello(ssl, hdr, buf, end);
+        break;
+      case HANDSHAKE_NEW_SESSION_TICKET:
+        dprintf(("new session ticket\n"));
+        break;
+      case HANDSHAKE_CERTIFICATE:
+        dprintf(("certificate\n"));
+        ret = handle_certificate(ssl, hdr, buf, end);
+        break;
+      case HANDSHAKE_SERVER_KEY_EXCH:
+        dprintf(("server key exch\n"));
+        ret = handle_key_exch(ssl, hdr, buf, end);
+        break;
+      case HANDSHAKE_CERTIFICATE_REQ:
+        dprintf(("cert req\n"));
+        /*
+         * At present we don't look at server's requirements at all and just
+         * blindly send our cert(s) and a SHA256 verify message, hoping
+         * server will understand.
+         * TODO(rojer): Be smarter.
+         */
+        ssl->cert_requested = 1;
+        break;
+      case HANDSHAKE_SERVER_HELLO_DONE:
+        dprintf(("hello done\n"));
+        ssl->state = STATE_SV_DONE_RCVD;
+        break;
+      case HANDSHAKE_FINISHED:
+        ret = handle_finished(ssl, hdr, buf, end);
+        break;
+      default:
+        dprintf(("unknown type 0x%.2x (encrypted?)\n", type));
+        tls_alert(ssl, ALERT_LEVEL_FATAL, ALERT_UNEXPECTED_MESSAGE);
+        return 0;
+    }
+    if (type != HANDSHAKE_HELLO_REQ) {
+      tls_add_handshake_to_hash(ssl, buf, len + 4);
+    }
+    buf += len + 4;
   }
 
   return ret;
@@ -7176,7 +7297,7 @@ static int handle_alert(SSL *ssl, const struct tls_hdr *hdr, const uint8_t *buf,
   (void) hdr;
   switch (buf[1]) {
     case ALERT_CLOSE_NOTIFY:
-      dprintf(("recieved close notify\n"));
+      dprintf(("received close notify\n"));
       if (!ssl->close_notify && ssl->state != STATE_CLOSING) {
         dprintf((" + replying\n"));
         tls_alert(ssl, buf[0], buf[1]);
@@ -7327,11 +7448,10 @@ int tls_handle_recv(SSL *ssl, uint8_t *out, size_t out_len) {
     msg = buf + sizeof(*hdr);
 
     /* check known ssl/tls versions */
-    if (hdr->vers != htobe16(0x0303)    /* TLS v1.2 */
-        && hdr->vers != htobe16(0x0302) /* TLS v1.1 */
-        && hdr->vers != htobe16(0x0301) /* TLS v1.0 */
-        && hdr->vers != htobe16(0x0300) /* SSL 3.0 */
-        ) {
+    if (hdr->vers != htobe16(TLS_1_2_PROTO) &&
+        hdr->vers != htobe16(TLS_1_1_PROTO) &&
+        hdr->vers != htobe16(TLS_1_0_PROTO) &&
+        hdr->vers != htobe16(SSL_3_0_PROTO)) {
       dprintf(("bad framing version: 0x%.4x\n", be16toh(hdr->vers)));
       ssl->rx_len = 0;
       return 0;
@@ -7423,18 +7543,14 @@ out:
 #include <time.h>
 
 NS_INTERNAL int tls_sv_hello(SSL *ssl) {
-  struct tls_hdr hdr;
   struct tls_svr_hello hello;
-  struct tls_cert cert;
-  struct tls_cert_hdr chdr;
   struct tls_svr_hello_done done;
-  unsigned int i;
 
   /* hello */
   hello.type = HANDSHAKE_SERVER_HELLO;
   hello.len_hi = 0;
   hello.len = htobe16(sizeof(hello) - 4);
-  hello.version = htobe16(0x0303);
+  hello.version = htobe16(TLS_1_2_PROTO);
   hello.random.time = htobe32(time(NULL));
   if (!kr_get_random(hello.random.opaque, sizeof(hello.random.opaque))) {
     return 0;
@@ -7449,48 +7565,15 @@ NS_INTERNAL int tls_sv_hello(SSL *ssl) {
   hello.ext_reneg.ri_len = 0;
 
   if (!tls_send(ssl, TLS_HANDSHAKE, &hello, sizeof(hello))) return 0;
-  SHA256_Update(&ssl->nxt->handshakes_hash, ((uint8_t *) &hello),
-                sizeof(hello));
 
-  /* certificate */
-  hdr.type = TLS_HANDSHAKE;
-  hdr.vers = htobe16(0x0303);
-  hdr.len = htobe16(sizeof(cert) + sizeof(chdr) * ssl->ctx->pem_cert->num_obj +
-                    ssl->ctx->pem_cert->tot_len);
-
-  if (!tls_tx_push(ssl, &hdr, sizeof(hdr))) return 0;
-
-  cert.type = HANDSHAKE_CERTIFICATE;
-  cert.len_hi = 0;
-  cert.len = htobe16(sizeof(chdr) + sizeof(chdr) * ssl->ctx->pem_cert->num_obj +
-                     ssl->ctx->pem_cert->tot_len);
-  cert.certs_len_hi = 0;
-  cert.certs_len = htobe16(sizeof(chdr) * ssl->ctx->pem_cert->num_obj +
-                           ssl->ctx->pem_cert->tot_len);
-
-  if (!tls_tx_push(ssl, &cert, sizeof(cert))) return 0;
-
-  SHA256_Update(&ssl->nxt->handshakes_hash, ((uint8_t *) &cert), sizeof(cert));
-
-  for (i = 0; i < ssl->ctx->pem_cert->num_obj; i++) {
-    DER *d = &ssl->ctx->pem_cert->obj[i];
-
-    chdr.cert_len_hi = 0;
-    chdr.cert_len = htobe16(d->der_len);
-
-    if (!tls_tx_push(ssl, &chdr, sizeof(chdr))) return 0;
-    if (!tls_tx_push(ssl, d->der, d->der_len)) return 0;
-    SHA256_Update(&ssl->nxt->handshakes_hash, ((uint8_t *) &chdr),
-                  sizeof(chdr));
-    SHA256_Update(&ssl->nxt->handshakes_hash, d->der, d->der_len);
-  }
+  /* certificate(s) */
+  if (!tls_send_certs(ssl, ssl->ctx->pem_cert)) return 0;
 
   /* hello done */
   done.type = HANDSHAKE_SERVER_HELLO_DONE;
   done.len_hi = 0;
   done.len = 0;
   if (!tls_send(ssl, TLS_HANDSHAKE, &done, sizeof(done))) return 0;
-  SHA256_Update(&ssl->nxt->handshakes_hash, ((uint8_t *) &done), sizeof(done));
 
   /* store the random we generated */
   memcpy(&ssl->nxt->sv_rnd, &hello.random, sizeof(ssl->nxt->sv_rnd));
