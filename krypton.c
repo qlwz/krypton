@@ -21,6 +21,7 @@ typedef struct ssl_method_st SSL_METHOD;
 int SSL_library_init(void);
 SSL *SSL_new(SSL_CTX *ctx);
 int SSL_set_fd(SSL *ssl, int fd);
+int SSL_set_cipher_list(SSL *ssl, const char *str);
 int SSL_get_fd(SSL *ssl);
 int SSL_accept(SSL *ssl);
 int SSL_connect(SSL *ssl);
@@ -52,6 +53,8 @@ SSL_CTX *SSL_CTX_new(const SSL_METHOD *meth);
 #define SSL_CTX_set_mode(ctx, op) SSL_CTX_ctrl((ctx), 33, (op), NULL)
 long SSL_CTX_ctrl(SSL_CTX *, int, long, void *);
 
+int SSL_CTX_set_cipher_list(SSL_CTX *ctx, const char *str);
+
 /* for the client */
 #define SSL_VERIFY_NONE 0x00
 #define SSL_VERIFY_PEER 0x01
@@ -61,6 +64,7 @@ void SSL_CTX_set_verify(SSL_CTX *ctx, int mode,
                         int (*verify_callback)(int, X509_STORE_CTX *));
 int SSL_CTX_load_verify_locations(SSL_CTX *ctx, const char *CAfile,
                                   const char *CAPath);
+
 /* Krypton-specific. */
 int SSL_CTX_kr_set_verify_name(SSL_CTX *ctx, const char *name);
 
@@ -2822,6 +2826,13 @@ long SSL_CTX_ctrl(SSL_CTX *ctx, int cmd, long mode, void *ptr) {
     ctx->mode |= mode;
   }
   return ctx->mode;
+}
+
+int SSL_CTX_set_cipher_list(SSL_CTX *ctx, const char *str) {
+  /* TODO(rojer): Implement this. */
+  (void) ctx;
+  (void) str;
+  return 0;
 }
 
 void SSL_CTX_set_verify(SSL_CTX *ctx, int mode,
@@ -5695,6 +5706,13 @@ int SSL_get_fd(SSL *ssl) {
   return ssl->fd;
 }
 
+int SSL_set_cipher_list(SSL *ssl, const char *str) {
+  /* TODO(rojer): Implement this. */
+  (void) str;
+  ssl_err(ssl, SSL_ERROR_SSL);
+  return 0;
+}
+
 static int do_send(SSL *ssl) {
   const uint8_t *buf;
   size_t len, send_len;
@@ -6340,14 +6358,15 @@ NS_INTERNAL int tls_send_enc(SSL *ssl, uint8_t type, const void *buf,
   struct tls_hdr hdr;
   int hdr_offset, enc_offset, enc_len;
 
-  int mac_len = kr_hmac_len(ssl->cur->cipher_suite);
+  const int mac_len = kr_hmac_len(ssl->cur->cipher_suite);
   const kr_cipher_info *ci = kr_cipher_get_info(ssl->cur->cipher_suite);
-  int is_cbc =
-      (ci->block_len > 0); /* Only CBC mode for block ciphers for now. */
-  size_t max = (1 << 14) - mac_len - (is_cbc ? ci->iv_len + ci->block_len : 0);
-  uint8_t pad_len = 0;
+  /* Only CBC mode for block ciphers for now, so block cipher -> CBC. */
+  const int is_cbc = (ci->block_len > 1);
+  const size_t max =
+      (1 << 14) - mac_len - (is_cbc ? ci->iv_len + ci->block_len : 0);
   void *cctx =
       ssl->is_server ? ssl->cur->server_write_ctx : ssl->cur->client_write_ctx;
+  uint8_t pad_len = 0;
 
   if (len > max) len = max;
 
@@ -7328,13 +7347,13 @@ static int decrypt_and_vrfy(SSL *ssl, const struct tls_hdr *hdr, uint8_t *buf,
   const uint8_t *msgs[2];
   size_t msgl[2];
   const uint8_t *mac;
-  int len = be16toh(hdr->len);
-  int mac_len = kr_hmac_len(ssl->cur->cipher_suite);
+  const int mac_len = kr_hmac_len(ssl->cur->cipher_suite);
   const kr_cipher_info *ci = kr_cipher_get_info(ssl->cur->cipher_suite);
-  int is_cbc =
-      (ci->block_len > 0); /* Only CBC mode for block ciphers for now. */
+  /* Only CBC mode for block ciphers for now, so block cipher -> CBC. */
+  const int is_cbc = (ci->block_len > 1);
   void *cctx =
       ssl->is_server ? ssl->cur->client_write_ctx : ssl->cur->server_write_ctx;
+  int len = be16toh(hdr->len);
   int alert = -1;
 
   if (!ssl->rx_enc) {

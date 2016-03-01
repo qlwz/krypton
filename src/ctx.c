@@ -42,6 +42,13 @@ long SSL_CTX_ctrl(SSL_CTX *ctx, int cmd, long mode, void *ptr) {
   return ctx->mode;
 }
 
+int SSL_CTX_set_cipher_list(SSL_CTX *ctx, const char *str) {
+  /* TODO(rojer): Implement this. */
+  (void) ctx;
+  (void) str;
+  return 0;
+}
+
 void SSL_CTX_set_verify(SSL_CTX *ctx, int mode,
                         int (*verify_callback)(int, X509_STORE_CTX *)) {
   /* not implemented */

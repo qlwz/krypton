@@ -55,12 +55,13 @@ static SSL_CTX *setup_ctx(const char *cert_file, const char *key_file,
     }
   }
 
-#ifdef OPENSSL_VERSION_NUMBER
   if (cipher != NULL) {
-    SSL_CTX_set_cipher_list(ctx, cipher);
     fprintf(stderr, "Cipher spec: %s\n", cipher);
+    if (!SSL_CTX_set_cipher_list(ctx, cipher)) {
+      fprintf(stderr, "Failed to set cipher spec\n");
+      goto out_free;
+    }
   }
-#endif
   goto out;
 
 out_free:

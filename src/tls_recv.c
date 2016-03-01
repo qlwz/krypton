@@ -640,13 +640,13 @@ static int decrypt_and_vrfy(SSL *ssl, const struct tls_hdr *hdr, uint8_t *buf,
   const uint8_t *msgs[2];
   size_t msgl[2];
   const uint8_t *mac;
-  int len = be16toh(hdr->len);
-  int mac_len = kr_hmac_len(ssl->cur->cipher_suite);
+  const int mac_len = kr_hmac_len(ssl->cur->cipher_suite);
   const kr_cipher_info *ci = kr_cipher_get_info(ssl->cur->cipher_suite);
-  int is_cbc =
-      (ci->block_len > 0); /* Only CBC mode for block ciphers for now. */
+  /* Only CBC mode for block ciphers for now, so block cipher -> CBC. */
+  const int is_cbc = (ci->block_len > 1);
   void *cctx =
       ssl->is_server ? ssl->cur->client_write_ctx : ssl->cur->server_write_ctx;
+  int len = be16toh(hdr->len);
   int alert = -1;
 
   if (!ssl->rx_enc) {

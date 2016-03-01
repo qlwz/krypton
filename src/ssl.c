@@ -46,6 +46,13 @@ int SSL_get_fd(SSL *ssl) {
   return ssl->fd;
 }
 
+int SSL_set_cipher_list(SSL *ssl, const char *str) {
+  /* TODO(rojer): Implement this. */
+  (void) str;
+  ssl_err(ssl, SSL_ERROR_SSL);
+  return 0;
+}
+
 static int do_send(SSL *ssl) {
   const uint8_t *buf;
   size_t len, send_len;

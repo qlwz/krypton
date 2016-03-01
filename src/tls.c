@@ -161,14 +161,15 @@ NS_INTERNAL int tls_send_enc(SSL *ssl, uint8_t type, const void *buf,
   struct tls_hdr hdr;
   int hdr_offset, enc_offset, enc_len;
 
-  int mac_len = kr_hmac_len(ssl->cur->cipher_suite);
+  const int mac_len = kr_hmac_len(ssl->cur->cipher_suite);
   const kr_cipher_info *ci = kr_cipher_get_info(ssl->cur->cipher_suite);
-  int is_cbc =
-      (ci->block_len > 0); /* Only CBC mode for block ciphers for now. */
-  size_t max = (1 << 14) - mac_len - (is_cbc ? ci->iv_len + ci->block_len : 0);
-  uint8_t pad_len = 0;
+  /* Only CBC mode for block ciphers for now, so block cipher -> CBC. */
+  const int is_cbc = (ci->block_len > 1);
+  const size_t max =
+      (1 << 14) - mac_len - (is_cbc ? ci->iv_len + ci->block_len : 0);
   void *cctx =
       ssl->is_server ? ssl->cur->server_write_ctx : ssl->cur->client_write_ctx;
+  uint8_t pad_len = 0;
 
   if (len > max) len = max;
 
