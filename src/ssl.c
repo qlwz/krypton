@@ -381,6 +381,11 @@ int SSL_read(SSL *ssl, void *buf, int num) {
                (int) ssl->rx_len));
       if (ssl->rx_len > 0) {
         memmove(ssl->rx_buf, ssl->rx_buf + shift_len, ssl->rx_len);
+      } else {
+        /* Keep idle memory consumption low. */
+        free(ssl->rx_buf);
+        ssl->rx_buf = NULL;
+        ssl->rx_max_len = ssl->rx_len = 0;
       }
     }
     return rlen;
