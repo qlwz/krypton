@@ -25,7 +25,7 @@ NS_INTERNAL int tls_cl_hello(SSL *ssl) {
     return 0;
   }
   hello.sess_id_len = 0;
-#if ALLOW_NULL_CIPHERS
+#if KR_ALLOW_NULL_CIPHERS
   /* if we allow them, it's for testing reasons, so NULL comes first */
   hello.cipher_suite[i++] = htobe16(TLS_RSA_WITH_NULL_MD5);
   hello.cipher_suite[i++] = htobe16(TLS_RSA_WITH_AES_128_CBC_SHA256);

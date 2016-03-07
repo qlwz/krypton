@@ -28,6 +28,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef KR_EXT_AES
+
 /**
  * AES implementation - this is a small code version. There are much faster
  * versions around but they are much larger in size (i.e. they use large
@@ -38,8 +40,6 @@
 
 #define AES_BLOCK_SIZE 16
 
-#ifndef KR_EXT_AES
-
 #include <string.h>
 
 #define AES_MAX_ROUNDS 14
@@ -48,8 +48,7 @@ typedef struct aes_key_st {
   uint16_t rounds;
   uint16_t key_size;
   uint32_t ks[(AES_MAX_ROUNDS + 1) * 8];
-  uint8_t iv[AES_IV_SIZE];
-} AES_CTX;
+} kr_aes_ctx;
 
 typedef enum { AES_MODE_128, AES_MODE_256 } AES_MODE;
 
@@ -141,21 +140,16 @@ static const unsigned char Rcon[30] = {
     0x97, 0x35, 0x6a, 0xd4, 0xb3, 0x7d, 0xfa, 0xef, 0xc5, 0x91,
 };
 
-/* ----- static functions ----- */
-static void AES_encrypt(const AES_CTX *ctx, uint32_t *data);
-static void AES_decrypt(const AES_CTX *ctx, uint32_t *data);
-
 /* Perform doubling in Galois Field GF(2^8) using the irreducible polynomial
    x^8+x^4+x^3+x+1 */
-static unsigned char AES_xtime(uint32_t x) {
+static unsigned char kr_aes_xtime(uint32_t x) {
   return (x & 0x80) ? (x << 1) ^ 0x1b : x << 1;
 }
 
 /**
  * Set up AES with the key/iv and cipher size.
  */
-void AES_set_key(AES_CTX *ctx, const uint8_t *key, const uint8_t *iv,
-                 AES_MODE mode) {
+void kr_aes_set_key(kr_aes_ctx *ctx, const uint8_t *key, AES_MODE mode) {
   int i, ii;
   uint32_t *W, tmp, tmp2;
   const unsigned char *ip;
@@ -211,15 +205,12 @@ void AES_set_key(AES_CTX *ctx, const uint8_t *key, const uint8_t *iv,
 
     W[i] = W[i - words] ^ tmp;
   }
-
-  /* copy the iv across */
-  memcpy(ctx->iv, iv, 16);
 }
 
 /**
  * Change a key for decryption.
  */
-void AES_convert_key(AES_CTX *ctx) {
+void kr_aes_convert_key(kr_aes_ctx *ctx) {
   int i;
   uint32_t *k, w, t1, t2, t3, t4;
 
@@ -234,81 +225,10 @@ void AES_convert_key(AES_CTX *ctx) {
 }
 
 /**
- * Encrypt a byte sequence (with a block size 16) using the AES cipher.
- */
-void AES_cbc_encrypt(AES_CTX *ctx, const uint8_t *msg, uint8_t *out,
-                     int length) {
-  int i;
-  uint32_t tin[4], tout[4], iv[4];
-
-  memcpy(iv, ctx->iv, AES_IV_SIZE);
-  for (i = 0; i < 4; i++) tout[i] = be32toh(iv[i]);
-
-  for (length -= AES_BLOCK_SIZE; length >= 0; length -= AES_BLOCK_SIZE) {
-    uint32_t msg_32[4];
-    uint32_t out_32[4];
-    memcpy(msg_32, msg, AES_BLOCK_SIZE);
-    msg += AES_BLOCK_SIZE;
-
-    for (i = 0; i < 4; i++) tin[i] = be32toh(msg_32[i]) ^ tout[i];
-
-    AES_encrypt(ctx, tin);
-
-    for (i = 0; i < 4; i++) {
-      tout[i] = tin[i];
-      out_32[i] = htobe32(tout[i]);
-    }
-
-    memcpy(out, out_32, AES_BLOCK_SIZE);
-    out += AES_BLOCK_SIZE;
-  }
-
-  for (i = 0; i < 4; i++) iv[i] = htobe32(tout[i]);
-  memcpy(ctx->iv, iv, AES_IV_SIZE);
-}
-
-/**
- * Decrypt a byte sequence (with a block size 16) using the AES cipher.
- */
-void AES_cbc_decrypt(AES_CTX *ctx, const uint8_t *msg, uint8_t *out,
-                     int length) {
-  int i;
-  uint32_t tin[4], xor[4], tout[4], data[4], iv[4];
-
-  memcpy(iv, ctx->iv, AES_IV_SIZE);
-  for (i = 0; i < 4; i++) xor[i] = be32toh(iv[i]);
-
-  for (length -= 16; length >= 0; length -= 16) {
-    uint32_t msg_32[4];
-    uint32_t out_32[4];
-    memcpy(msg_32, msg, AES_BLOCK_SIZE);
-    msg += AES_BLOCK_SIZE;
-
-    for (i = 0; i < 4; i++) {
-      tin[i] = be32toh(msg_32[i]);
-      data[i] = tin[i];
-    }
-
-    AES_decrypt(ctx, data);
-
-    for (i = 0; i < 4; i++) {
-      tout[i] = data[i] ^ xor[i];
-      xor[i] = tin[i];
-      out_32[i] = htobe32(tout[i]);
-    }
-
-    memcpy(out, out_32, AES_BLOCK_SIZE);
-    out += AES_BLOCK_SIZE;
-  }
-
-  for (i = 0; i < 4; i++) iv[i] = htobe32 (xor[i]);
-  memcpy(ctx->iv, iv, AES_IV_SIZE);
-}
-
-/**
  * Encrypt a single block (16 bytes) of data
  */
-static void AES_encrypt(const AES_CTX *ctx, uint32_t *data) {
+static void kr_aes_encrypt_block(const kr_aes_ctx *ctx, const uint32_t *in,
+                                 uint32_t *out) {
   /* To make this code smaller, generate the sbox entries on the fly.
    * This will have a really heavy effect upon performance.
    */
@@ -319,25 +239,25 @@ static void AES_encrypt(const AES_CTX *ctx, uint32_t *data) {
   const uint32_t *k = ctx->ks;
 
   /* Pre-round key addition */
-  for (row = 0; row < 4; row++) data[row] ^= *(k++);
+  for (row = 0; row < 4; row++) out[row] = be32toh(in[row]) ^ *(k++);
 
   /* Encrypt one block. */
   for (curr_rnd = 0; curr_rnd < rounds; curr_rnd++) {
     /* Perform ByteSub and ShiftRow operations together */
     for (row = 0; row < 4; row++) {
-      a0 = (uint32_t) aes_sbox[(data[row % 4] >> 24) & 0xFF];
-      a1 = (uint32_t) aes_sbox[(data[(row + 1) % 4] >> 16) & 0xFF];
-      a2 = (uint32_t) aes_sbox[(data[(row + 2) % 4] >> 8) & 0xFF];
-      a3 = (uint32_t) aes_sbox[(data[(row + 3) % 4]) & 0xFF];
+      a0 = (uint32_t) aes_sbox[(out[row % 4] >> 24) & 0xFF];
+      a1 = (uint32_t) aes_sbox[(out[(row + 1) % 4] >> 16) & 0xFF];
+      a2 = (uint32_t) aes_sbox[(out[(row + 2) % 4] >> 8) & 0xFF];
+      a3 = (uint32_t) aes_sbox[(out[(row + 3) % 4]) & 0xFF];
 
       /* Perform MixColumn iff not last round */
       if (curr_rnd < (rounds - 1)) {
         tmp1 = a0 ^ a1 ^ a2 ^ a3;
         old_a0 = a0;
-        a0 ^= tmp1 ^ AES_xtime(a0 ^ a1);
-        a1 ^= tmp1 ^ AES_xtime(a1 ^ a2);
-        a2 ^= tmp1 ^ AES_xtime(a2 ^ a3);
-        a3 ^= tmp1 ^ AES_xtime(a3 ^ old_a0);
+        a0 ^= tmp1 ^ kr_aes_xtime(a0 ^ a1);
+        a1 ^= tmp1 ^ kr_aes_xtime(a1 ^ a2);
+        a2 ^= tmp1 ^ kr_aes_xtime(a2 ^ a3);
+        a3 ^= tmp1 ^ kr_aes_xtime(a3 ^ old_a0);
       }
 
       tmp[row] = ((a0 << 24) | (a1 << 16) | (a2 << 8) | a3);
@@ -345,14 +265,17 @@ static void AES_encrypt(const AES_CTX *ctx, uint32_t *data) {
 
     /* KeyAddition - note that it is vital that this loop is separate from
        the MixColumn operation, which must be atomic...*/
-    for (row = 0; row < 4; row++) data[row] = tmp[row] ^ *(k++);
+    for (row = 0; row < 4; row++) out[row] = tmp[row] ^ *(k++);
   }
+
+  for (row = 0; row < 4; row++) out[row] = htobe32(out[row]);
 }
 
 /**
  * Decrypt a single block (16 bytes) of data
  */
-static void AES_decrypt(const AES_CTX *ctx, uint32_t *data) {
+static void kr_aes_decrypt_block(const kr_aes_ctx *ctx, const uint32_t *in,
+                                 uint32_t *out) {
   uint32_t tmp[4];
   uint32_t xt0, xt1, xt2, xt3, xt4, xt5, xt6;
   uint32_t a0, a1, a2, a3, row;
@@ -361,29 +284,29 @@ static void AES_decrypt(const AES_CTX *ctx, uint32_t *data) {
   const uint32_t *k = ctx->ks + ((rounds + 1) * 4);
 
   /* pre-round key addition */
-  for (row = 4; row > 0; row--) data[row - 1] ^= *(--k);
+  for (row = 4; row > 0; row--) out[row - 1] = be32toh(in[row - 1]) ^ *(--k);
 
   /* Decrypt one block */
   for (curr_rnd = 0; curr_rnd < rounds; curr_rnd++) {
     /* Perform ByteSub and ShiftRow operations together */
     for (row = 4; row > 0; row--) {
-      a0 = aes_isbox[(data[(row + 3) % 4] >> 24) & 0xFF];
-      a1 = aes_isbox[(data[(row + 2) % 4] >> 16) & 0xFF];
-      a2 = aes_isbox[(data[(row + 1) % 4] >> 8) & 0xFF];
-      a3 = aes_isbox[(data[row % 4]) & 0xFF];
+      a0 = aes_isbox[(out[(row + 3) % 4] >> 24) & 0xFF];
+      a1 = aes_isbox[(out[(row + 2) % 4] >> 16) & 0xFF];
+      a2 = aes_isbox[(out[(row + 1) % 4] >> 8) & 0xFF];
+      a3 = aes_isbox[(out[row % 4]) & 0xFF];
 
       /* Perform MixColumn iff not last round */
       if (curr_rnd < (rounds - 1)) {
         /* The MDS cofefficients (0x09, 0x0B, 0x0D, 0x0E)
            are quite large compared to encryption; this
            operation slows decryption down noticeably. */
-        xt0 = AES_xtime(a0 ^ a1);
-        xt1 = AES_xtime(a1 ^ a2);
-        xt2 = AES_xtime(a2 ^ a3);
-        xt3 = AES_xtime(a3 ^ a0);
-        xt4 = AES_xtime(xt0 ^ xt1);
-        xt5 = AES_xtime(xt1 ^ xt2);
-        xt6 = AES_xtime(xt4 ^ xt5);
+        xt0 = kr_aes_xtime(a0 ^ a1);
+        xt1 = kr_aes_xtime(a1 ^ a2);
+        xt2 = kr_aes_xtime(a2 ^ a3);
+        xt3 = kr_aes_xtime(a3 ^ a0);
+        xt4 = kr_aes_xtime(xt0 ^ xt1);
+        xt5 = kr_aes_xtime(xt1 ^ xt2);
+        xt6 = kr_aes_xtime(xt4 ^ xt5);
 
         xt0 ^= a1 ^ a2 ^ a3 ^ xt4 ^ xt6;
         xt1 ^= a0 ^ a2 ^ a3 ^ xt5 ^ xt6;
@@ -394,12 +317,58 @@ static void AES_decrypt(const AES_CTX *ctx, uint32_t *data) {
         tmp[row - 1] = ((a0 << 24) | (a1 << 16) | (a2 << 8) | a3);
     }
 
-    for (row = 4; row > 0; row--) data[row - 1] = tmp[row - 1] ^ *(--k);
+    for (row = 4; row > 0; row--) out[row - 1] = tmp[row - 1] ^ *(--k);
+  }
+
+  for (row = 0; row < 4; row++) out[row] = htobe32(out[row]);
+}
+
+NS_INTERNAL void kr_aes_setup_enc(void *ctxv, const uint8_t *key) {
+  kr_aes_ctx *ctx = (kr_aes_ctx *) ctxv;
+  kr_aes_set_key(ctx, key, AES_MODE_128);
+}
+
+NS_INTERNAL void kr_aes_setup_dec(void *ctxv, const uint8_t *key) {
+  kr_aes_ctx *ctx = (kr_aes_ctx *) ctxv;
+  kr_aes_set_key(ctx, key, AES_MODE_128);
+  kr_aes_convert_key(ctx);
+}
+
+NS_INTERNAL void kr_aes_encrypt(void *ctxv, const uint8_t *in, int len,
+                                uint8_t *out) {
+  const kr_aes_ctx *ctx = (const kr_aes_ctx *) ctxv;
+  while (len > 0) {
+    kr_aes_encrypt_block(ctx, (const uint32_t *) in, (uint32_t *) out);
+    in += AES_BLOCK_SIZE;
+    out += AES_BLOCK_SIZE;
+    len -= AES_BLOCK_SIZE;
   }
 }
 
-NS_INTERNAL void *kr_aes_ctx_new() {
-  return calloc(1, sizeof(AES_CTX));
+NS_INTERNAL void kr_aes_decrypt(void *ctxv, const uint8_t *in, int len,
+                                uint8_t *out) {
+  const kr_aes_ctx *ctx = (const kr_aes_ctx *) ctxv;
+  while (len > 0) {
+    kr_aes_decrypt_block(ctx, (const uint32_t *) in, (uint32_t *) out);
+    in += AES_BLOCK_SIZE;
+    out += AES_BLOCK_SIZE;
+    len -= AES_BLOCK_SIZE;
+  }
 }
 
-#endif
+NS_INTERNAL void *kr_aes_new_ctx() {
+  return calloc(1, sizeof(kr_aes_ctx));
+}
+
+NS_INTERNAL void kr_aes_free_ctx(void *ctxv) {
+  free(ctxv);
+}
+
+const kr_cipher_info *kr_aes128_cs_info() {
+  static const kr_cipher_info aes128_cs_info = {
+      AES_BLOCK_SIZE, AES128_KEY_SIZE, 16, kr_aes_new_ctx, kr_aes_setup_enc,
+      kr_aes_setup_dec, kr_aes_encrypt, kr_aes_decrypt, kr_aes_free_ctx};
+  return &aes128_cs_info;
+}
+
+#endif /* !KR_EXT_AES */

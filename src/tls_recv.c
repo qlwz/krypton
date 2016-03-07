@@ -669,12 +669,13 @@ static int decrypt_and_vrfy(SSL *ssl, const struct tls_hdr *hdr, uint8_t *buf,
   }
 
   if (is_cbc) {
-    kr_cipher_set_iv(ssl->cur->cipher_suite, cctx, buf);
+    uint8_t *iv = buf;
     buf += ci->iv_len;
     len -= ci->iv_len;
+    kr_cbc_decrypt(ci, cctx, buf, len, iv, buf);
+  } else {
+    ci->decrypt(cctx, buf, len, buf);
   }
-
-  kr_cipher_decrypt(ssl->cur->cipher_suite, cctx, buf, len, buf);
 
   out->ptr = buf;
   out->len = len;
@@ -733,6 +734,7 @@ static int decrypt_and_vrfy(SSL *ssl, const struct tls_hdr *hdr, uint8_t *buf,
     tls_alert(ssl, ALERT_LEVEL_FATAL, alert);
     return 0;
   }
+
   return 1;
 }
 

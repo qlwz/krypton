@@ -7,7 +7,7 @@
 #define _TLSPROTO_H
 
 /* set to number of null ciphers */
-#define ALLOW_NULL_CIPHERS 0
+#define KR_ALLOW_NULL_CIPHERS 0
 
 /* just count non-NULL ciphers */
 #define NUM_CIPHER_SUITES 4
@@ -66,7 +66,7 @@ struct tls_cl_hello {
   struct tls_random random;
   uint8_t sess_id_len;
   uint16_t cipher_suites_len;
-  uint16_t cipher_suite[NUM_CIPHER_SUITES + ALLOW_NULL_CIPHERS + 1];
+  uint16_t cipher_suite[NUM_CIPHER_SUITES + KR_ALLOW_NULL_CIPHERS + 1];
   uint8_t num_compressors;
   uint8_t compressor[NUM_COMPRESSORS];
   uint16_t ext_len;
@@ -178,7 +178,7 @@ enum TLS_SignatureAlgorithm {
  */
 
 typedef enum {
-#if ALLOW_NULL_CIPHERS
+#if KR_ALLOW_NULL_CIPHERS
   TLS_RSA_WITH_NULL_MD5 = 0x0001,
 #endif
   TLS_RSA_WITH_RC4_128_MD5 = 0x0004,

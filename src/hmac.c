@@ -5,7 +5,7 @@
 
 NS_INTERNAL int kr_hmac_len(kr_cs_id cs) {
   switch (cs) {
-#if ALLOW_NULL_CIPHERS
+#if KR_ALLOW_NULL_CIPHERS
     case TLS_RSA_WITH_NULL_MD5:
 #endif
     case TLS_RSA_WITH_RC4_128_MD5:
@@ -65,7 +65,7 @@ NS_INTERNAL void kr_ssl_hmac(SSL *ssl, int cs, size_t num_msgs,
   const uint8_t *key =
       (cs == KR_CLIENT_MAC ? ssl->cur->keys : ssl->cur->keys + mac_len);
   switch ((kr_cs_id) ssl->cur->cipher_suite) {
-#if ALLOW_NULL_CIPHERS
+#if KR_ALLOW_NULL_CIPHERS
     case TLS_RSA_WITH_NULL_MD5:
 #endif
     case TLS_RSA_WITH_RC4_128_MD5:

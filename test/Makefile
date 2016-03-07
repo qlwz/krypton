@@ -4,7 +4,7 @@
 .PHONY: all tests run-tests clean
 
 CFLAGS := -O0 -W -Wall -Werror -g -I../.. \
-          -DKRYPTON_DEBUG -DDEBUG_VERIFY -DNS_MODULE_LINES \
+          -DKRYPTON_DEBUG -DDEBUG_VERIFY -DKR_MODULE_LINES \
           $(CFLAGS_EXTRA)
 CFLAGS_KRYPTON := -I..
 OPENSSL_FLAGS := -lssl -lcrypto

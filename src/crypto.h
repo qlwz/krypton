@@ -93,19 +93,16 @@ NS_INTERNAL void kr_hmac_v(kr_hash_func_t hash_func, const uint8_t *key,
                            const uint8_t *msgs[], const size_t *msg_lens,
                            uint8_t *digest, size_t digest_len);
 
-typedef struct {
-  uint8_t block_len;
-  uint8_t key_len;
-  uint8_t iv_len;
-} kr_cipher_info;
-
 NS_INTERNAL const kr_cipher_info *kr_cipher_get_info(kr_cs_id cs);
-NS_INTERNAL void *kr_cipher_setup(kr_cs_id cs, int decrypt, const uint8_t *key,
-                                  const uint8_t *iv);
-NS_INTERNAL void kr_cipher_ctx_free(kr_cs_id cs, void *ctx);
-NS_INTERNAL void kr_cipher_set_iv(kr_cs_id cs, void *ctx, const uint8_t *iv);
-NS_INTERNAL void kr_cipher_encrypt(kr_cs_id cs, void *ctx, const uint8_t *msg,
-                                   int len, uint8_t *out);
-NS_INTERNAL void kr_cipher_decrypt(kr_cs_id cs, void *ctx, const uint8_t *msg,
-                                   int len, uint8_t *out);
+
+NS_INTERNAL void kr_cbc_encrypt(const kr_cipher_info *ci, void *cctx,
+                                const uint8_t *msg, int len, const uint8_t *iv,
+                                uint8_t *out);
+NS_INTERNAL void kr_cbc_decrypt(const kr_cipher_info *ci, void *cctx,
+                                const uint8_t *msg, int len, const uint8_t *iv,
+                                uint8_t *out);
+
+const kr_cipher_info *kr_rc4_cs_info();
+const kr_cipher_info *kr_aes128_cs_info();
+
 #endif /* _CRYPTO_H */

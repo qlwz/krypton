@@ -23,7 +23,7 @@ void hex_dumpf(FILE *f, const void *buf, size_t len, size_t llen) {
       line = llen;
     }
 
-    fprintf(f, " | %05zx : ", j);
+    fprintf(f, " | %05u : ", (unsigned int) j);
 
     for (i = 0; i < line; i++) {
       if (isprint(tmp[i])) {
@@ -35,7 +35,7 @@ void hex_dumpf(FILE *f, const void *buf, size_t len, size_t llen) {
 
     for (; i < llen; i++) fprintf(f, " ");
 
-    for (i = 0; i < line; i++) fprintf(f, " %02x", tmp[i]);
+    for (i = 0; i < line; i++) fprintf(f, "%02x", tmp[i]);
 
     fprintf(f, "\n");
   }

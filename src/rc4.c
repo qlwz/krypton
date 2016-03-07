@@ -28,6 +28,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef KR_EXT_RC4
+
 /**
  * An implementation of the RC4/ARC4 algorithm.
  * Originally written by Christophe Devine.
@@ -40,10 +42,12 @@ typedef struct {
   uint8_t m[256];
 } kr_rc4_ctx;
 
-/**
- * Get ready for an encrypt/decrypt operation
- */
-void kr_rc4_setup(kr_rc4_ctx *ctx, const uint8_t *key, int length) {
+NS_INTERNAL void *kr_rc4_new_ctx() {
+  return calloc(1, sizeof(kr_rc4_ctx));
+}
+
+NS_INTERNAL void kr_rc4_setup(void *ctxv, const uint8_t *key) {
+  kr_rc4_ctx *ctx = (kr_rc4_ctx *) ctxv;
   int i, j = 0, k = 0, a;
   uint8_t *m;
 
@@ -59,26 +63,28 @@ void kr_rc4_setup(kr_rc4_ctx *ctx, const uint8_t *key, int length) {
     m[i] = m[j];
     m[j] = a;
 
-    if (++k >= length) k = 0;
+    if (++k >= RC4_KEY_SIZE) k = 0;
   }
 }
 
 /**
  * Perform the encrypt/decrypt operation (can use it for either since
  * this is a stream cipher).
- * NOTE: *msg and *out must be the same pointer (performance tweak)
  */
-void kr_rc4_crypt(kr_rc4_ctx *ctx, const uint8_t *msg, uint8_t *out,
-                  int length) {
+NS_INTERNAL void kr_rc4_crypt(void *ctxv, const uint8_t *msg, int len,
+                              uint8_t *out) {
+  kr_rc4_ctx *ctx = (kr_rc4_ctx *) ctxv;
   int i;
   uint8_t *m, x, y, a, b;
 
+  /* NOTE: *msg and *out must be the same pointer (performance tweak) */
+  assert(msg == out);
   (void) msg;
   x = ctx->x;
   y = ctx->y;
   m = ctx->m;
 
-  for (i = 0; i < length; i++) {
+  for (i = 0; i < len; i++) {
     a = m[++x];
     y += a;
     m[x] = b = m[y];
@@ -90,6 +96,14 @@ void kr_rc4_crypt(kr_rc4_ctx *ctx, const uint8_t *msg, uint8_t *out,
   ctx->y = y;
 }
 
-NS_INTERNAL void *kr_rc4_ctx_new() {
-  return calloc(1, sizeof(kr_rc4_ctx));
+NS_INTERNAL void kr_rc4_free_ctx(void *ctxv) {
+  free(ctxv);
 }
+
+const kr_cipher_info *kr_rc4_cs_info() {
+  static const kr_cipher_info rc4_cs_info = {
+      1, RC4_KEY_SIZE, 0, kr_rc4_new_ctx, kr_rc4_setup, kr_rc4_setup,
+      kr_rc4_crypt, kr_rc4_crypt, kr_rc4_free_ctx};
+  return &rc4_cs_info;
+}
+#endif /* !KR_EXT_RC4 */
