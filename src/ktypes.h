@@ -3,8 +3,8 @@
  * All rights reserved
  */
 
-#ifndef _KTYPES_H
-#define _KTYPES_H
+#ifndef CS_KRYPTON_SRC_KTYPES_H_
+#define CS_KRYPTON_SRC_KTYPES_H_
 
 #define _FILE_OFFSET_BITS 64
 #define _GNU_SOURCE
@@ -208,4 +208,4 @@ typedef struct _bigint bigint; /**< An alias for _bigint */
 #include "ber.h"
 #include "x509.h"
 
-#endif /* _KTYPES_H */
+#endif /* CS_KRYPTON_SRC_KTYPES_H_ */

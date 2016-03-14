@@ -3,8 +3,8 @@
  * All rights reserved
  */
 
-#ifndef _PEM_H
-#define _PEM_H
+#ifndef CS_KRYPTON_SRC_PEM_H_
+#define CS_KRYPTON_SRC_PEM_H_
 
 struct pem_st {
   unsigned int tot_len;
@@ -38,4 +38,4 @@ NS_INTERNAL void pem_free(struct pem_st *p);
 NS_INTERNAL int b64_decode(const uint8_t *buf, size_t len, uint8_t *out,
                            size_t *obytes);
 
-#endif /* _PEM_H */
+#endif /* CS_KRYPTON_SRC_PEM_H_ */

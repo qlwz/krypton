@@ -3,8 +3,8 @@
  * All rights reserved
  */
 
-#ifndef _KEXTERNS_H
-#define _KEXTERNS_H
+#ifndef CS_KRYPTON_SRC_KEXTERNS_H_
+#define CS_KRYPTON_SRC_KEXTERNS_H_
 
 #ifdef KR_EXT_IO
 extern ssize_t kr_send(int fd, const void *buf, size_t len, int flags);
@@ -44,4 +44,4 @@ extern void kr_hash_sha256_v(size_t num_msgs, const uint8_t *msgs[],
 #endif
 #endif
 
-#endif /* _KEXTERNS_H */
+#endif /* CS_KRYPTON_SRC_KEXTERNS_H_ */

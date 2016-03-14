@@ -3,8 +3,8 @@
  * Released under the MIT license.
  */
 
-#ifndef _GBER_H
-#define _GBER_H
+#ifndef CS_KRYPTON_SRC_BER_H_
+#define CS_KRYPTON_SRC_BER_H_
 
 typedef uint16_t gber_tag_t;
 
@@ -35,4 +35,4 @@ int ber_dump(const uint8_t *ptr, size_t len);
 int ber_dumpf(FILE *f, const uint8_t *ptr, size_t len);
 #endif
 
-#endif /* _GBER_H */
+#endif /* CS_KRYPTON_SRC_BER_H_ */

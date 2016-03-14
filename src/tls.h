@@ -3,8 +3,8 @@
  * All rights reserved
  */
 
-#ifndef _TLS_H
-#define _TLS_H
+#ifndef CS_KRYPTON_SRC_TLS_H_
+#define CS_KRYPTON_SRC_TLS_H_
 
 typedef struct tls_security {
   /*
@@ -73,4 +73,4 @@ NS_INTERNAL void tls_generate_server_finished(tls_sec_t sec, uint8_t *vrfy,
 NS_INTERNAL void tls_compute_master_secret(tls_sec_t sec,
                                            struct tls_premaster_secret *pre);
 
-#endif /* _TLS_H */
+#endif /* CS_KRYPTON_SRC_TLS_H_ */

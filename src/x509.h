@@ -3,8 +3,8 @@
  * All rights reserved
  */
 
-#ifndef _X509_H
-#define _X509_H
+#ifndef CS_KRYPTON_SRC_X509_H_
+#define CS_KRYPTON_SRC_X509_H_
 
 #define X509_ENC_ALG_UNKNOWN 0
 #define X509_ENC_ALG_RSA 1
@@ -44,4 +44,4 @@ NS_INTERNAL int X509_verify_name(X509 *cert, const char *name);
 
 NS_INTERNAL int kr_match_domain_name(struct ro_vec pat, struct ro_vec dom);
 
-#endif /* _X509_H */
+#endif /* CS_KRYPTON_SRC_X509_H_ */

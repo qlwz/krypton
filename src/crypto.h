@@ -3,8 +3,8 @@
  * All rights reserved
  */
 
-#ifndef _CRYPTO_H
-#define _CRYPTO_H
+#ifndef CS_KRYPTON_SRC_CRYPTO_H_
+#define CS_KRYPTON_SRC_CRYPTO_H_
 
 NS_INTERNAL int get_random_nonzero(uint8_t *out, size_t len);
 
@@ -105,4 +105,4 @@ NS_INTERNAL void kr_cbc_decrypt(const kr_cipher_info *ci, void *cctx,
 const kr_cipher_info *kr_rc4_cs_info();
 const kr_cipher_info *kr_aes128_cs_info();
 
-#endif /* _CRYPTO_H */
+#endif /* CS_KRYPTON_SRC_CRYPTO_H_ */

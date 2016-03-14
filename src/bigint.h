@@ -28,8 +28,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef BIGINT_HEADER
-#define BIGINT_HEADER
+#ifndef CS_KRYPTON_SRC_BIGINT_H_
+#define CS_KRYPTON_SRC_BIGINT_H_
 
 NS_INTERNAL BI_CTX *bi_initialize(void);
 NS_INTERNAL void bi_terminate(BI_CTX *ctx);
@@ -94,4 +94,4 @@ NS_INTERNAL bigint *bi_square(BI_CTX *ctx, bigint *bi);
 NS_INTERNAL bigint *bi_crt(BI_CTX *ctx, bigint *bi, bigint *dP, bigint *dQ,
                            bigint *p, bigint *q, bigint *qInv);
 
-#endif
+#endif /* CS_KRYPTON_SRC_BIGINT_H_ */

@@ -3,8 +3,8 @@
  * All rights reserved
  */
 
-#ifndef _TLSPROTO_H
-#define _TLSPROTO_H
+#ifndef CS_KRYPTON_SRC_TLSPROTO_H_
+#define CS_KRYPTON_SRC_TLSPROTO_H_
 
 /* set to number of null ciphers */
 #define KR_ALLOW_NULL_CIPHERS 0
@@ -191,4 +191,4 @@ typedef enum {
 
 #define COMPRESSOR_NULL 0x00
 
-#endif /* _TLSPROTO_H */
+#endif /* CS_KRYPTON_SRC_TLSPROTO_H_ */

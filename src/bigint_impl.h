@@ -28,8 +28,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef BIGINT_IMPL_HEADER
-#define BIGINT_IMPL_HEADER
+#ifndef CS_KRYPTON_SRC_BIGINT_IMPL_H_
+#define CS_KRYPTON_SRC_BIGINT_IMPL_H_
 
 /* Maintain a number of precomputed variables when doing reduction */
 #define BIGINT_M_OFFSET 0 /**< Normal modulo offset. */
@@ -126,4 +126,4 @@ typedef struct _BI_CTX BI_CTX;
 
 #define PERMANENT 0x7FFF55AA /**< A magic number for permanents. */
 
-#endif
+#endif /* CS_KRYPTON_SRC_BIGINT_IMPL_H_ */
