@@ -18,21 +18,6 @@ static int check_compressor(uint8_t compressor) {
   }
 }
 
-static void cipher_suite_negotiate(SSL *ssl, kr_cs_id cs) {
-  if (ssl->nxt->cipher_negotiated) return;
-  switch (cs) {
-#if ALLOW_NULL_CIPHERS
-    case TLS_RSA_WITH_NULL_MD5:
-#endif
-    case TLS_RSA_WITH_RC4_128_MD5:
-    case TLS_RSA_WITH_RC4_128_SHA:
-    case TLS_RSA_WITH_AES_128_CBC_SHA:
-    case TLS_RSA_WITH_AES_128_CBC_SHA256:
-      ssl->nxt->cipher_suite = cs;
-      ssl->nxt->cipher_negotiated = 1;
-  }
-}
-
 static void compressor_negotiate(SSL *ssl, uint8_t compressor) {
   if (ssl->nxt->compressor_negotiated) return;
   switch (compressor) {
@@ -93,7 +78,7 @@ static int handle_hello(SSL *ssl, const struct tls_hdr *hdr, const uint8_t *buf,
 
   if (proto != TLS_1_2_PROTO && proto != TLS_1_1_PROTO &&
       proto != TLS_1_0_PROTO && proto != SSL_3_0_PROTO) {
-    dprintf(("bad prot version: %04x\n", proto));
+    dprintf(("bad proto version: %04x\n", proto));
     goto bad_vers;
   }
 
@@ -209,16 +194,15 @@ static int handle_hello(SSL *ssl, const struct tls_hdr *hdr, const uint8_t *buf,
 
   for (i = 0; i < num_ciphers; i++) {
     uint16_t suite = be16toh(cipher_suites[i]);
-    dprintf((" + %s cipher_suite[%u]: 0x%.4x\n",
-             (ssl->is_server) ? "server" : "client", i, suite));
-    if (ssl->is_server) {
-      cipher_suite_negotiate(ssl, suite);
-    } else {
-      if (check_cipher(suite)) {
-        ssl->nxt->cipher_suite = suite;
-        ssl->nxt->cipher_negotiated = 1;
-      }
+    int selected = 0;
+    if (!ssl->nxt->cipher_negotiated && check_cipher(suite)) {
+      ssl->nxt->cipher_suite = suite;
+      ssl->nxt->cipher_negotiated = 1;
+      selected = 1;
     }
+    dprintf(("%s %s cipher_suite[%u]: 0x%.4x\n", (selected ? " +" : " -"),
+             (ssl->is_server) ? "server" : "client", i, suite));
+    (void) selected;
   }
   for (i = 0; i < num_compressions; i++) {
     uint8_t compressor = compressions[i];
@@ -237,6 +221,8 @@ static int handle_hello(SSL *ssl, const struct tls_hdr *hdr, const uint8_t *buf,
   if (!ssl->nxt->cipher_negotiated || !ssl->nxt->compressor_negotiated) {
     dprintf(("Faled to negotiate cipher\n"));
     goto bad_param;
+  } else {
+    dprintf(("cipher: 0x%.4x\n", ssl->nxt->cipher_suite));
   }
   if (ssl->is_server) {
     memcpy(&ssl->nxt->cl_rnd, rand, sizeof(ssl->nxt->cl_rnd));
@@ -244,10 +230,10 @@ static int handle_hello(SSL *ssl, const struct tls_hdr *hdr, const uint8_t *buf,
       dprintf(("Impossible session resume\n"));
       goto bad_param;
     }
-    ssl->state = STATE_CL_HELLO_RCVD;
+    kr_set_state(ssl, STATE_CL_HELLO_RCVD);
   } else {
     memcpy(&ssl->nxt->sv_rnd, rand, sizeof(ssl->nxt->sv_rnd));
-    ssl->state = STATE_SV_HELLO_RCVD;
+    kr_set_state(ssl, STATE_SV_HELLO_RCVD);
   }
 
   return 1;
@@ -325,7 +311,7 @@ static int handle_certificate(SSL *ssl, const struct tls_hdr *hdr,
   if (!chain) goto err;
 
   if (!ssl->is_server) {
-    ssl->state = STATE_SV_CERT_RCVD;
+    kr_set_state(ssl, STATE_SV_CERT_RCVD);
   }
 
   if (ssl->ctx->verify_name != NULL) {
@@ -428,10 +414,10 @@ static int handle_finished(SSL *ssl, const struct tls_hdr *hdr,
 
   if (ssl->is_server) {
     ret = tls_check_client_finished(ssl->cur, buf, len);
-    ssl->state = STATE_CLIENT_FINISHED;
+    kr_set_state(ssl, STATE_CLIENT_FINISHED);
   } else {
     ret = tls_check_server_finished(ssl->cur, buf, len);
-    ssl->state = STATE_ESTABLISHED;
+    kr_set_state(ssl, STATE_ESTABLISHED);
   }
   if (!ret) {
     tls_alert(ssl, ALERT_LEVEL_FATAL, ALERT_DECRYPT_ERROR);
@@ -523,7 +509,7 @@ static int handle_cl_handshake(SSL *ssl, const struct tls_hdr *hdr,
         break;
       case HANDSHAKE_SERVER_HELLO_DONE:
         dprintf(("hello done\n"));
-        ssl->state = STATE_SV_DONE_RCVD;
+        kr_set_state(ssl, STATE_SV_DONE_RCVD);
         break;
       case HANDSHAKE_FINISHED:
         ret = handle_finished(ssl, hdr, buf, end);
@@ -817,6 +803,8 @@ int tls_handle_recv(SSL *ssl, uint8_t *out, size_t out_len) {
         iret = 0;
         break;
     }
+
+    dprintf(("iret = %d\n", iret));
 
     if (!iret) {
       ssl->rx_len = 0;

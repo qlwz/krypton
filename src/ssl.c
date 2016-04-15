@@ -125,6 +125,7 @@ static int do_recv(SSL *ssl, uint8_t *out, size_t out_len) {
   ssize_t ret;
   size_t len;
 
+  dprintf(("do_recv %d %d\n", (int) ssl->rx_len, (int) ssl->rx_max_len));
   if (NULL == ssl->rx_buf) {
     ssl->rx_buf = malloc(RX_INITIAL_BUF);
     if (NULL == ssl->rx_buf) {
@@ -221,7 +222,7 @@ int SSL_accept(SSL *ssl) {
     case STATE_INITIAL:
       ssl->is_server = 1;
       ssl->mode_defined = 1;
-      ssl->state = STATE_CL_HELLO_WAIT;
+      kr_set_state(ssl, STATE_CL_HELLO_WAIT);
 
     /* fall through */
     case STATE_CL_HELLO_WAIT:
@@ -237,7 +238,7 @@ int SSL_accept(SSL *ssl) {
         return 0;
       }
 
-      ssl->state = STATE_SV_HELLO_SENT;
+      kr_set_state(ssl, STATE_SV_HELLO_SENT);
       if (!do_send(ssl)) return -1;
 
     /* fall through */
@@ -254,7 +255,7 @@ int SSL_accept(SSL *ssl) {
         return 0;
       }
 
-      ssl->state = STATE_ESTABLISHED;
+      kr_set_state(ssl, STATE_ESTABLISHED);
       if (!do_send(ssl)) return -1;
 
     /* fall through */
@@ -306,7 +307,7 @@ int SSL_connect(SSL *ssl) {
         return -1;
       }
 
-      ssl->state = STATE_CL_HELLO_SENT;
+      kr_set_state(ssl, STATE_CL_HELLO_SENT);
       if (!do_send(ssl)) return -1;
 
     /* fall through */
@@ -343,7 +344,7 @@ int SSL_connect(SSL *ssl) {
         return -1;
       }
 
-      ssl->state = STATE_CLIENT_FINISHED;
+      kr_set_state(ssl, STATE_CLIENT_FINISHED);
       if (!do_send(ssl)) return -1;
 
     /* fall through */
@@ -489,7 +490,7 @@ int SSL_shutdown(SSL *ssl) {
           return -1;
         }
 
-        ssl->state = STATE_CLOSING;
+        kr_set_state(ssl, STATE_CLOSING);
         if (!do_send(ssl)) return -1;
       /* fall through */
 
@@ -535,5 +536,11 @@ void ssl_err(SSL *ssl, int err) {
     default:
       abort();
   }
+  dprintf(("ssl_err = %d\n", err));
   ssl->err = err;
+}
+
+NS_INTERNAL void kr_set_state(struct ssl_st *ssl, enum kr_state new_state) {
+  dprintf(("state %d -> %d\n", ssl->state, new_state));
+  ssl->state = new_state;
 }

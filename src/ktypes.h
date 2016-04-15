@@ -137,17 +137,19 @@ struct ssl_ctx_st {
   char *verify_name;
 };
 
-#define STATE_INITIAL 0
-#define STATE_CL_HELLO_SENT 1
-#define STATE_CL_HELLO_WAIT 2
-#define STATE_CL_HELLO_RCVD 3
-#define STATE_SV_HELLO_SENT 4
-#define STATE_SV_HELLO_RCVD 5
-#define STATE_SV_CERT_RCVD 6
-#define STATE_SV_DONE_RCVD 7
-#define STATE_CLIENT_FINISHED 8
-#define STATE_ESTABLISHED 9
-#define STATE_CLOSING 10
+enum kr_state {
+  STATE_INITIAL = 0,
+  STATE_CL_HELLO_SENT,
+  STATE_CL_HELLO_WAIT,
+  STATE_CL_HELLO_RCVD,
+  STATE_SV_HELLO_SENT,
+  STATE_SV_HELLO_RCVD,
+  STATE_SV_CERT_RCVD,
+  STATE_SV_DONE_RCVD,
+  STATE_CLIENT_FINISHED,
+  STATE_ESTABLISHED,
+  STATE_CLOSING,
+};
 
 struct ssl_st {
   struct ssl_ctx_st *ctx;
@@ -173,7 +175,7 @@ struct ssl_st {
   struct vec extra_appdata;
   uint8_t *appdata_eom;
 
-  uint8_t state;
+  enum kr_state state;
 
   uint8_t vrfy_result;
 
@@ -189,6 +191,7 @@ struct ssl_st {
 };
 
 NS_INTERNAL void ssl_err(struct ssl_st *ssl, int err);
+NS_INTERNAL void kr_set_state(struct ssl_st *ssl, enum kr_state new_state);
 
 #if KRYPTON_DEBUG
 void hex_dumpf(FILE *f, const void *buf, size_t len, size_t llen);
