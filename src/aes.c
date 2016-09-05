@@ -356,7 +356,7 @@ NS_INTERNAL void kr_aes_decrypt(void *ctxv, const uint8_t *in, int len,
   }
 }
 
-NS_INTERNAL void *kr_aes_new_ctx() {
+NS_INTERNAL void *kr_aes_new_ctx(void) {
   return calloc(1, sizeof(kr_aes_ctx));
 }
 
@@ -364,7 +364,7 @@ NS_INTERNAL void kr_aes_free_ctx(void *ctxv) {
   free(ctxv);
 }
 
-const kr_cipher_info *kr_aes128_cs_info() {
+const kr_cipher_info *kr_aes128_cs_info(void) {
   static const kr_cipher_info aes128_cs_info = {
       AES_BLOCK_SIZE, AES128_KEY_SIZE, 16, kr_aes_new_ctx, kr_aes_setup_enc,
       kr_aes_setup_dec, kr_aes_encrypt, kr_aes_decrypt, kr_aes_free_ctx};

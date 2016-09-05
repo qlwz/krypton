@@ -102,7 +102,7 @@ NS_INTERNAL void kr_cbc_decrypt(const kr_cipher_info *ci, void *cctx,
                                 const uint8_t *msg, int len, const uint8_t *iv,
                                 uint8_t *out);
 
-const kr_cipher_info *kr_rc4_cs_info();
-const kr_cipher_info *kr_aes128_cs_info();
+const kr_cipher_info *kr_rc4_cs_info(void);
+const kr_cipher_info *kr_aes128_cs_info(void);
 
 #endif /* CS_KRYPTON_SRC_CRYPTO_H_ */

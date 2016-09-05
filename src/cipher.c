@@ -7,7 +7,7 @@
 
 #if KR_ALLOW_NULL_CIPHERS
 
-NS_INTERNAL void *kr_null_new_ctx() {
+NS_INTERNAL void *kr_null_new_ctx(void) {
   return NULL;
 }
 

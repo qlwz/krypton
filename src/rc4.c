@@ -42,7 +42,7 @@ typedef struct {
   uint8_t m[256];
 } kr_rc4_ctx;
 
-NS_INTERNAL void *kr_rc4_new_ctx() {
+NS_INTERNAL void *kr_rc4_new_ctx(void) {
   return calloc(1, sizeof(kr_rc4_ctx));
 }
 
@@ -100,7 +100,7 @@ NS_INTERNAL void kr_rc4_free_ctx(void *ctxv) {
   free(ctxv);
 }
 
-const kr_cipher_info *kr_rc4_cs_info() {
+const kr_cipher_info *kr_rc4_cs_info(void) {
   static const kr_cipher_info rc4_cs_info = {
       1, RC4_KEY_SIZE, 0, kr_rc4_new_ctx, kr_rc4_setup, kr_rc4_setup,
       kr_rc4_crypt, kr_rc4_crypt, kr_rc4_free_ctx};
