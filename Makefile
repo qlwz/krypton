@@ -20,7 +20,7 @@ endif
 
 .PHONY: all clean format tests openssl-tests krypton-tests
 
-all: tests
+all: krypton.c tests
 
 krypton.c: $(HEADERS) $(SOURCES) Makefile
 	@echo "AMALGAMATING\tkrypton.c"

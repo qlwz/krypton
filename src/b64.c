@@ -109,27 +109,3 @@ NS_INTERNAL int b64_decode(const uint8_t *buf, size_t len, uint8_t *out,
 
   return 1;
 }
-
-#if CODE_FU
-#include <ctype.h>
-
-int main(int argc, char **argv) {
-  char buf[300];
-  uint8_t out[400];
-  size_t olen;
-
-  while (fgets(buf, sizeof(buf), stdin)) {
-    char *lf;
-
-    lf = strchr(buf, '\n');
-    *lf = '\0';
-
-    if (!b64_decode((uint8_t *) buf, lf - buf, out, &olen)) {
-      printf("error\n");
-    } else {
-      hex_dump(out, olen, 0);
-    }
-  }
-  return 0;
-}
-#endif

@@ -145,7 +145,7 @@ static int decode_extension(X509 *cert, const uint8_t *oid, size_t oid_len,
 
   if (critical) {
     dprintf(("unhandled critical extension\n"));
-#ifdef KRYPTON_DEBUG
+#if KRYPTON_DEBUG
     hex_dump(oid, oid_len, 0);
 #endif
     return 0;
