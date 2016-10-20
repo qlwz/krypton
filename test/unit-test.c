@@ -7,6 +7,7 @@
 
 #include "krypton.h"
 #include "ktypes.h"
+#include "kexterns.h"
 #include "pem.h"
 
 #include "../../common/test_util.h"
@@ -16,6 +17,41 @@ static struct ro_vec s_vec(const char *s) {
   v.ptr = (const uint8_t *) s;
   v.len = strlen(s);
   return v;
+}
+
+static const char *test_pem_load(void) {
+  PEM *pem;
+  pem = pem_load_types("BOOM", PEM_SIG_CERT);
+  ASSERT(pem == NULL);
+  pem = pem_load_types(
+      " \
+BOOM \n\
+-----BEGIN CERTIFICATE----- \n\
+MIICODCCAaGgAwIBAgIBADANBgkqhkiG9w0BAQUFADA/MRkwFwYDVQQDDBB0ZXN0\n\
+LmNlc2FudGEuY29tMRAwDgYDVQQKDAdDZXNhbnRhMRAwDgYDVQQLDAd0ZXN0aW5n \n\
+MB4XDTE2MDIyNDIxMTYzNFoXDTI1MTEyMzIxMTYzNFowGDEWMBQGA1UEAwwNZG8u\n\
+bm90LnVzZS5tZTCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEA5+EBQZyCP+kW\n\
+mIwPmb9UrfwS0Uy8NJtn5Dv41bTRei6iT1JD2uE/EkyB46GNH+MGv6stymKkv1X6\n\
+54SRtl3OzyuapXlXBhreWMmjbnHlT6x6B/xllB0hs6QPSOV+YAPud5fyQdnCKnmF\n\
+rlwZ5v4BPtRBm5U0GqM75pSn6p7MJp0CAwEAAaNrMGkwCQYDVR0TBAIwADALBgNV\r\n\
+HQ8EBAMCAygwEwYDVR0lBAwwCgYIKwYBBQUHAwEwOgYDVR0RBDMwMYcEfwAAAYIJ\n\
+bG9jYWxob3N0ggxuZXZlci51c2UubWWCEGV4Y2VwdC5mb3IudGVzdHMwDQYJKoZI\n\
+hvcNAQEFBQADgYEAgKlxxQsknespu7skK7oK9EuPIGpLFGuDOCiX10szi3WU788N\n\
+dRxdGmQDSOpFEkjA5/Xqou92FBJReRaKg9ouA3UoulD5UeCTPBQEFtgnwFi6uKyu\n\
+erIeYTShppTKCto6h4Dq76l9oBvcolpFjhjpazJeeTtP7E/XgSBtNLPLCSc=\r\n\
+-----END CERTIFICATE----- \r\n\
+",
+      PEM_SIG_CERT);
+  ASSERT(pem != NULL);
+  pem_free(pem);
+  pem = pem_load_types("server.pem", PEM_SIG_CERT);
+#if KR_ENABLE_FILESYSTEM
+  ASSERT(pem != NULL);
+  pem_free(pem);
+#else
+  ASSERT(pem == NULL);
+#endif
+  return NULL;
 }
 
 static const char *test_match_domain_name(void) {
@@ -60,6 +96,7 @@ static const char *test_verify_name(void) {
 }
 
 static const char *run_tests(const char *filter, double *total_elapsed) {
+  RUN_TEST(test_pem_load);
   RUN_TEST(test_match_domain_name);
   RUN_TEST(test_verify_name);
   return NULL;

@@ -25,6 +25,9 @@ extern void kr_hash_sha1_v(size_t num_msgs, const uint8_t *msgs[],
 extern void kr_hash_sha256_v(size_t num_msgs, const uint8_t *msgs[],
                              const size_t *msg_lens, uint8_t *digest);
 #endif
+#ifndef KR_ENABLE_FILESYSTEM
+#define KR_ENABLE_FILESYSTEM 1
+#endif
 
 /* Some defaults. */
 
