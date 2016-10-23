@@ -26,6 +26,7 @@ static const char *test_pem_load(void) {
   pem = pem_load_types(
       " \
 BOOM \n\
+\n\
 -----BEGIN CERTIFICATE----- \n\
 MIICODCCAaGgAwIBAgIBADANBgkqhkiG9w0BAQUFADA/MRkwFwYDVQQDDBB0ZXN0\n\
 LmNlc2FudGEuY29tMRAwDgYDVQQKDAdDZXNhbnRhMRAwDgYDVQQLDAd0ZXN0aW5n \n\
