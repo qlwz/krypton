@@ -43,6 +43,8 @@ NS_INTERNAL const kr_cipher_info *kr_cipher_get_info(kr_cs_id cs) {
     case TLS_RSA_WITH_AES_128_CBC_SHA:
     case TLS_RSA_WITH_AES_128_CBC_SHA256:
       return kr_aes128_cs_info();
+    case _MAX_CIPHERS:
+      break;
   }
   return NULL;
 }

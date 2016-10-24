@@ -185,6 +185,7 @@ typedef enum {
   TLS_RSA_WITH_RC4_128_SHA = 0x0005,
   TLS_RSA_WITH_AES_128_CBC_SHA = 0x002f,
   TLS_RSA_WITH_AES_128_CBC_SHA256 = 0x003c,
+  _MAX_CIPHERS = 0xffff, /* Ensures that a type of at least 16 bits is used. */
 } kr_cs_id;
 
 #define TLS_EMPTY_RENEGOTIATION_INFO_SCSV 0x00ff

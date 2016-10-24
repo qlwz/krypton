@@ -15,6 +15,8 @@ NS_INTERNAL int kr_hmac_len(kr_cs_id cs) {
       return SHA1_SIZE;
     case TLS_RSA_WITH_AES_128_CBC_SHA256:
       return SHA256_SIZE;
+    case _MAX_CIPHERS:
+      break;
   }
   return -1;
 }
@@ -78,6 +80,8 @@ NS_INTERNAL void kr_ssl_hmac(SSL *ssl, int cs, size_t num_msgs,
     case TLS_RSA_WITH_AES_128_CBC_SHA256:
       hf = kr_hash_sha256_v;
       break;
+    case _MAX_CIPHERS:
+      return;
   }
   kr_hmac_v(hf, key, mac_len, num_msgs, msgs, msg_lens, digest, mac_len);
 }
