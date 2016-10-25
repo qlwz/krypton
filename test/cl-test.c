@@ -205,10 +205,11 @@ static int do_test(const char *caddr, const char *cert_chain,
   SSL_CTX *ctx;
   SSL *ssl;
   int ret = 0;
+  int attempt = 0;
   int fd;
 
   memset(&hints, 0, sizeof(struct addrinfo));
-  hints.ai_family = AF_UNSPEC;
+  hints.ai_family = AF_INET;
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_flags = 0;
   hints.ai_protocol = 0;
@@ -250,9 +251,16 @@ static int do_test(const char *caddr, const char *cert_chain,
     goto out_ssl;
   }
 
+try_again:
   if (connect(fd, rp->ai_addr, rp->ai_addrlen)) {
-    if (errno != EINPROGRESS) {
-      fprintf(stderr, "connect: %s\n", strerror(errno));
+    if (errno == ECONNREFUSED && attempt < 50) {
+      /* Try again, server may not be ready yet. */
+      usleep(100000);
+      attempt++;
+      goto try_again;
+    } else if (errno != EINPROGRESS) {
+      fprintf(stderr, "(%d) connect(%s): %s\n", attempt, caddr,
+              strerror(errno));
       goto out_close;
     }
   }
@@ -322,11 +330,10 @@ int main(int argc, char **argv) {
   if (client_key_file == NULL) client_key_file = client_cert_file;
   if (optind < argc) {
     addr = argv[optind];
-  } else {
+  } else if ((addr = getenv("CLIENT_TEST_ADDR")) == NULL) {
     addr = TEST_ADDR;
   }
   SSL_library_init();
-  usleep(100000);
   if (!do_test(addr, ca_file, client_cert_file, client_key_file, cipher,
                verify_server_name)) {
     return EXIT_FAILURE;

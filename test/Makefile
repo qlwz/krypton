@@ -49,11 +49,17 @@ endif
 
 run-tests: tests
 	./unit-test
+	@echo === Testing OpenSSL / Krypton ===
 	./sv-test-openssl & ./cl-test-krypton -a ca.pem -n
+	@echo === Testing OpenSSL AES128-SHA / Krypton ===
 	./sv-test-openssl -C AES128-SHA & ./cl-test-krypton -a ca.pem -n
+	@echo === Testing OpenSSL RC4-SHA / Krypton ===
 	./sv-test-openssl -C RC4-SHA & ./cl-test-krypton -a ca.pem -n
+	@echo === Testing OpenSSL / Krypton + client cert ===
 	./sv-test-openssl -a ca.pem & ./cl-test-krypton -a ca.pem -n -c client.pem -k client.key
+	@echo === Testing Krypton / OpenSSL ===
 	./sv-test-krypton & ./cl-test-openssl -a ca.pem
+	@echo === Testing Krypton / OpenSSL + name verification ===
 	./sv-test-krypton & ./cl-test-krypton -a ca.pem -n
 
 clean:

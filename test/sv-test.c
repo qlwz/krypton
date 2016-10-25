@@ -196,7 +196,7 @@ static void ns_set_non_blocking_mode(int sock) {
 #endif
 }
 
-static int do_test(const char *cert_file, const char *key_file,
+static int do_test(int port, const char *cert_file, const char *key_file,
                    const char *ca_file, const char *cipher) {
   struct sockaddr_in sa;
   socklen_t slen;
@@ -223,8 +223,8 @@ static int do_test(const char *cert_file, const char *key_file,
   } while (0);
 
   sa.sin_family = AF_INET;
-  sa.sin_addr.s_addr = 0;  // htonl(INADDR_LOOPBACK);
-  sa.sin_port = htons(TEST_PORT);
+  sa.sin_addr.s_addr = 0;
+  sa.sin_port = htons(port);
   if (bind(fd, (struct sockaddr *) &sa, sizeof(sa))) {
     fprintf(stderr, "bind: %s\n", strerror(errno));
     goto out_close;
@@ -236,7 +236,7 @@ static int do_test(const char *cert_file, const char *key_file,
   }
 
   slen = sizeof(sa);
-  printf("Waiting for a connection...\n");
+  printf("Waiting for a connection (port %d)...\n", port);
   cfd = accept(fd, (struct sockaddr *) &sa, &slen);
   if (cfd < 0) {
     fprintf(stderr, "accept: %s\n", strerror(errno));
@@ -298,7 +298,11 @@ int main(int argc, char **argv) {
     }
   }
   SSL_library_init();
-  if (!do_test(server_cert_file, server_key_file, client_ca_file, cipher)) {
+  int port = TEST_PORT;
+  const char *tp = getenv("SERVER_TEST_PORT");
+  if (tp != NULL) port = atoi(tp);
+  if (!do_test(port, server_cert_file, server_key_file, client_ca_file,
+               cipher)) {
     fprintf(stderr, "sv-test failure\n");
     return EXIT_FAILURE;
   }
