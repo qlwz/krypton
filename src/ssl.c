@@ -5,9 +5,32 @@
 
 #include "ktypes.h"
 
+#if !KR_EXT_IO
+
+#ifdef _POSIX_VERSION
+#include <sys/socket.h>
+#endif
+
 #ifndef MSG_NOSIGNAL
 #define MSG_NOSIGNAL 0
 #endif
+
+ssize_t kr_send(int fd, const void *buf, size_t len) {
+  ssize_t ret = send(fd, buf, len, MSG_NOSIGNAL);
+  if (ret < 0 && (SOCKET_ERRNO == EWOULDBLOCK || SOCKET_ERRNO == EAGAIN)) {
+    return KR_IO_WOULDBLOCK;
+  }
+  return ret;
+}
+
+ssize_t kr_recv(int fd, void *buf, size_t len) {
+  ssize_t ret = recv(fd, buf, len, MSG_NOSIGNAL);
+  if (ret < 0 && (SOCKET_ERRNO == EWOULDBLOCK || SOCKET_ERRNO == EAGAIN)) {
+    return KR_IO_WOULDBLOCK;
+  }
+  return ret;
+}
+#endif /* !KR_EXT_IO */
 
 int SSL_library_init(void) {
   return 1;
@@ -72,11 +95,11 @@ again:
 #else
   send_len = len;
 #endif
-  ret = kr_send(ssl->fd, buf, send_len, MSG_NOSIGNAL);
+  ret = kr_send(ssl->fd, buf, send_len);
   dprintf(
       ("kr_send(%d, %p, %d) = %d\n", ssl->fd, buf, (int) send_len, (int) ret));
   if (ret < 0) {
-    if (SOCKET_ERRNO == EWOULDBLOCK) {
+    if (ret == KR_IO_WOULDBLOCK) {
       goto shuffle;
     }
     ssl_err(ssl, SSL_ERROR_SYSCALL);
@@ -159,15 +182,14 @@ static int do_recv(SSL *ssl, uint8_t *out, size_t out_len) {
   len = ssl->rx_max_len - ssl->rx_len;
 #endif
 
-  ret = kr_recv(ssl->fd, ptr, len, MSG_NOSIGNAL);
-  dprintf(("kr_recv(%d, %p, %d): %d %d\n", ssl->fd, ptr, (int) len, (int) ret,
-           errno));
+  ret = kr_recv(ssl->fd, ptr, len);
+  dprintf(("kr_recv(%d, %p, %d): %d\n", ssl->fd, ptr, (int) len, (int) ret));
   if (ret < 0) {
-    if (SOCKET_ERRNO == EWOULDBLOCK) {
+    if (ret == KR_IO_WOULDBLOCK) {
       ssl_err(ssl, SSL_ERROR_WANT_READ);
       return 0;
     }
-    dprintf(("recv: %s\n", strerror(errno)));
+    dprintf(("recv: %d %s\n", SOCKET_ERRNO, strerror(errno)));
     ssl_err(ssl, SSL_ERROR_SYSCALL);
     return 0;
   }
@@ -199,6 +221,8 @@ static int do_recv(SSL *ssl, uint8_t *out, size_t out_len) {
 }
 
 int SSL_accept(SSL *ssl) {
+  dprintf(("SSL_accept(%p)\n", ssl));
+
   if (ssl->fatal) {
     ssl_err(ssl, SSL_ERROR_SSL);
     return -1;
@@ -269,6 +293,8 @@ int SSL_accept(SSL *ssl) {
 
 int SSL_connect(SSL *ssl) {
   tls_sec_t sec;
+
+  dprintf(("SSL_connect(%p)\n", ssl));
 
   if (ssl->fatal) {
     ssl_err(ssl, SSL_ERROR_SSL);

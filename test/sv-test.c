@@ -100,6 +100,7 @@ static int do_accept(SSL *ssl) {
 
 again:
   ret = SSL_accept(ssl);
+  printf("SSL_accept: %d\n", ret);
   if (ret < 0) {
     if (waitforit(ssl)) {
       goto again;
@@ -116,6 +117,7 @@ static int do_read(SSL *ssl, void *buf, int len) {
 
 again:
   ret = SSL_read(ssl, buf, len);
+  printf("SSL_read: %d\n", ret);
   if (ret < 0) {
     if (waitforit(ssl)) {
       goto again;
@@ -167,9 +169,11 @@ static int test_content(SSL *ssl) {
   int ret;
 
   ret = do_read(ssl, buf, sizeof(buf));
+
+  if (ret > 0) printf("Got: %.*s\n", ret, buf);
+
   if (ret < 0 || (size_t) ret != strlen(str1)) return 0;
 
-  printf("Got: %.*s\n", ret, buf);
   if (memcmp(buf, str1, ret)) {
     return 0;
   }
@@ -219,7 +223,7 @@ static int do_test(const char *cert_file, const char *key_file,
   } while (0);
 
   sa.sin_family = AF_INET;
-  sa.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+  sa.sin_addr.s_addr = 0;  // htonl(INADDR_LOOPBACK);
   sa.sin_port = htons(TEST_PORT);
   if (bind(fd, (struct sockaddr *) &sa, sizeof(sa))) {
     fprintf(stderr, "bind: %s\n", strerror(errno));

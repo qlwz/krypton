@@ -6,9 +6,13 @@
 #ifndef CS_KRYPTON_SRC_KEXTERNS_H_
 #define CS_KRYPTON_SRC_KEXTERNS_H_
 
-#ifdef KR_EXT_IO
-extern ssize_t kr_send(int fd, const void *buf, size_t len, int flags);
-extern ssize_t kr_recv(int fd, void *buf, size_t len, int flags);
+#if !defined(KR_EXT_IO) && (defined(_POSIX_VERSION) || defined(WIN32))
+#define KR_EXT_IO 0
+#endif
+
+#if KR_EXT_IO
+extern ssize_t kr_send(int fd, const void *buf, size_t len);
+extern ssize_t kr_recv(int fd, void *buf, size_t len);
 #endif
 #ifdef KR_EXT_RANDOM
 extern int kr_get_random(uint8_t *out, size_t len);
@@ -30,14 +34,6 @@ extern void kr_hash_sha256_v(size_t num_msgs, const uint8_t *msgs[],
 #endif
 
 /* Some defaults. */
-
-#if !defined(KR_EXT_IO) && (defined(_POSIX_VERSION) || defined(WIN32))
-#define kr_send send
-#define kr_recv recv
-#if defined(_POSIX_VERSION)
-#include <sys/socket.h>
-#endif
-#endif
 
 #if !defined(KR_EXT_RANDOM)
 #if defined(__unix__)

@@ -33,7 +33,7 @@ void hex_dumpf(FILE *f, const void *buf, size_t len, size_t llen) {
       }
     }
 
-    for (; i < llen; i++) fprintf(f, " ");
+    for (; i < llen + 1; i++) fprintf(f, " ");
 
     for (i = 0; i < line; i++) fprintf(f, "%02x", tmp[i]);
 
