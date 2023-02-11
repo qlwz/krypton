@@ -2,7 +2,10 @@
  * Copyright (c) 2015 Cesanta Software Limited
  * All rights reserved
  */
-
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 #ifndef CS_KRYPTON_KRYPTON_H_
 #define CS_KRYPTON_KRYPTON_H_
 
@@ -90,3 +93,6 @@ typedef struct {
 } kr_cipher_info;
 
 #endif /* CS_KRYPTON_KRYPTON_H_ */
+#ifdef __cplusplus
+}
+#endif

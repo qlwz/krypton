@@ -1,3 +1,9 @@
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 #ifdef KR_MODULE_LINES
 #line 1 "krypton.h"
 #endif
@@ -2804,7 +2810,7 @@ NS_INTERNAL bigint *bi_crt(BI_CTX *ctx, bigint *bi, bigint *dP, bigint *dQ,
 SSL_CTX *SSL_CTX_new(const SSL_METHOD *meth) {
   SSL_CTX *ctx;
 
-  ctx = calloc(1, sizeof(*ctx));
+  ctx = (SSL_CTX *)calloc(1, sizeof(*ctx));
   if (NULL == ctx) goto out;
 
   assert(meth != NULL);
@@ -2837,7 +2843,7 @@ int SSL_CTX_set_cipher_list(SSL_CTX *ctx, const char *str) {
   /* TODO(rojer): Implement this. */
   (void) ctx;
   (void) str;
-  return 0;
+  return 1;
 }
 
 void SSL_CTX_set_verify(SSL_CTX *ctx, int mode,
@@ -2887,13 +2893,13 @@ int SSL_CTX_load_verify_locations(SSL_CTX *ctx, const char *CAfile,
 
   for (ca = NULL, i = 0; i < p->num_obj; i++) {
     DER *d = &p->obj[i];
-    X509 *new;
+    X509 *nex;
 
-    new = X509_new(d->der, d->der_len);
-    if (NULL == new) goto out;
+    nex = X509_new(d->der, d->der_len);
+    if (NULL == nex) goto out;
 
-    new->next = ca;
-    ca = new;
+    nex->next = ca;
+    ca = nex;
   }
 
   pem_free(p);
@@ -4396,7 +4402,7 @@ NS_INTERNAL void kr_ssl_hmac(SSL *ssl, int cs, size_t num_msgs,
                              const uint8_t *msgs[], const size_t *msg_lens,
                              uint8_t *digest) {
   kr_hash_func_t hf = NULL;
-  size_t mac_len = kr_hmac_len(ssl->cur->cipher_suite);
+  size_t mac_len = kr_hmac_len((kr_cs_id)ssl->cur->cipher_suite);
   const uint8_t *key =
       (cs == KR_CLIENT_MAC ? ssl->cur->keys : ssl->cur->keys + mac_len);
   switch ((kr_cs_id) ssl->cur->cipher_suite) {
@@ -4509,18 +4515,18 @@ static int add_line(DER *d, size_t *max_len, const uint8_t *buf, size_t len) {
   }
 
   if (d->der_len + olen > *max_len) {
-    size_t new_len;
-    uint8_t *new;
+    size_t nex_len;
+    uint8_t *nex;
 
-    new_len = *max_len + DER_INCREMENT;
-    new = realloc(d->der, new_len);
-    if (NULL == new) {
+    nex_len = *max_len + DER_INCREMENT;
+    nex = (uint8_t *)realloc(d->der, nex_len);
+    if (NULL == nex) {
       dprintf(("pem: realloc: %s\n", strerror(errno)));
       return 0;
     }
 
-    d->der = new;
-    *max_len = new_len;
+    d->der = nex;
+    *max_len = nex_len;
   }
 
   memcpy(d->der + d->der_len, dec, olen);
@@ -4532,14 +4538,14 @@ static int add_line(DER *d, size_t *max_len, const uint8_t *buf, size_t len) {
 static int add_object(PEM *p) {
   if (p->num_obj >= p->max_obj) {
     unsigned int max;
-    DER *new;
+    DER *nex;
 
     max = p->max_obj + OBJ_INCREMENT;
 
-    new = realloc(p->obj, sizeof(*p->obj) * max);
-    if (NULL == new) return 0;
+    nex = (DER *)realloc(p->obj, sizeof(*p->obj) * max);
+    if (NULL == nex) return 0;
 
-    p->obj = new;
+    p->obj = nex;
     p->max_obj = max;
   }
   return 1;
@@ -4583,7 +4589,7 @@ PEM *pem_load(const char *fn, pem_filter_fn flt, void *flt_arg) {
 #ifdef DEBUG_PEM_LOAD
   dprintf(("loading PEM objects from %s\n", fn));
 #endif
-  p = calloc(1, sizeof(*p));
+  p = (PEM *)calloc(1, sizeof(*p));
   if (NULL == p) {
     goto out;
   }
@@ -5357,22 +5363,22 @@ NS_INTERNAL void kr_cbc_encrypt(const kr_cipher_info *ci, void *cctx,
                                 const uint8_t *in, int len, const uint8_t *iv,
                                 uint8_t *out) {
   int i;
-  uint32_t d32[4], xor[4];
+  uint32_t d32[4], xox[4];
 
   assert(ci->iv_len == 16);
   assert(ci->block_len == 16);
 
-  memcpy (xor, iv, ci->iv_len);
+  memcpy (xox, iv, ci->iv_len);
 
   for (len -= ci->block_len; len >= 0; len -= ci->block_len) {
     memcpy(d32, in, ci->block_len);
     in += ci->block_len;
 
-    for (i = 0; i < 4; i++) d32[i] ^= xor[i];
+    for (i = 0; i < 4; i++) d32[i] ^= xox[i];
 
     ci->encrypt(cctx, (const uint8_t *) d32, ci->block_len, (uint8_t *) d32);
 
-    memcpy (xor, d32, ci->block_len);
+    memcpy (xox, d32, ci->block_len);
     memcpy(out, d32, ci->block_len);
     out += ci->block_len;
   }
@@ -5382,20 +5388,20 @@ NS_INTERNAL void kr_cbc_decrypt(const kr_cipher_info *ci, void *cctx,
                                 const uint8_t *in, int len, const uint8_t *iv,
                                 uint8_t *out) {
   int i;
-  uint32_t d32[4], xor[4];
+  uint32_t d32[4], xox[4];
 
   assert(ci->iv_len == 16);
   assert(ci->block_len == 16);
-  memcpy (xor, iv, ci->iv_len);
+  memcpy (xox, iv, ci->iv_len);
 
   for (len -= ci->block_len; len >= 0; len -= ci->block_len) {
     memcpy(d32, in, ci->block_len);
 
     ci->decrypt(cctx, (const uint8_t *) d32, ci->block_len, (uint8_t *) d32);
 
-    for (i = 0; i < 4; i++) d32[i] ^= xor[i];
+    for (i = 0; i < 4; i++) d32[i] ^= xox[i];
 
-    memcpy (xor, in, ci->block_len);
+    memcpy (xox, in, ci->block_len);
     in += ci->block_len;
 
     memcpy(out, d32, ci->block_len);
@@ -5710,7 +5716,7 @@ int SSL_library_init(void) {
 SSL *SSL_new(SSL_CTX *ctx) {
   SSL *ssl;
 
-  ssl = calloc(1, sizeof(*ssl));
+  ssl = (SSL *)calloc(1, sizeof(*ssl));
   if (NULL == ssl) goto out;
 
   assert(ctx != NULL);
@@ -5821,7 +5827,7 @@ static int do_recv(SSL *ssl, uint8_t *out, size_t out_len) {
 
   dprintf(("do_recv %d %d\n", (int) ssl->rx_len, (int) ssl->rx_max_len));
   if (NULL == ssl->rx_buf) {
-    ssl->rx_buf = malloc(RX_INITIAL_BUF);
+    ssl->rx_buf = (uint8_t *)malloc(RX_INITIAL_BUF);
     if (NULL == ssl->rx_buf) {
       ssl_err(ssl, SSL_ERROR_SYSCALL);
       return 0;
@@ -5831,19 +5837,19 @@ static int do_recv(SSL *ssl, uint8_t *out, size_t out_len) {
     ssl->rx_len = 0;
   }
   if (ssl->rx_len >= ssl->rx_max_len) {
-    uint8_t *new;
-    size_t new_len;
+    uint8_t *nex;
+    size_t nex_len;
 
     /* FIXME: peek for size */
-    new_len = ssl->rx_max_len + RX_INITIAL_BUF;
-    new = realloc(ssl->rx_buf, new_len);
-    if (NULL == new) {
+    nex_len = ssl->rx_max_len + RX_INITIAL_BUF;
+    nex = (uint8_t *)realloc(ssl->rx_buf, nex_len);
+    if (NULL == nex) {
       ssl_err(ssl, SSL_ERROR_SYSCALL);
       return 0;
     }
 
-    ssl->rx_buf = new;
-    ssl->rx_max_len = new_len;
+    ssl->rx_buf = nex;
+    ssl->rx_max_len = nex_len;
   }
 
   ptr = ssl->rx_buf + ssl->rx_len;
@@ -6099,7 +6105,7 @@ int SSL_read(SSL *ssl, void *buf, int num) {
 
   if (ssl->rx_len > 0) {
     /* Try decoding what is in the buffer already. */
-    if (!tls_handle_recv(ssl, buf, num)) {
+    if (!tls_handle_recv(ssl, (uint8_t *)buf, num)) {
       ssl_err(ssl, SSL_ERROR_SSL);
       return 0;
     }
@@ -6116,7 +6122,7 @@ int SSL_read(SSL *ssl, void *buf, int num) {
       if (ret <= 0) return ret;
     }
 
-    if (!do_recv(ssl, buf, num)) {
+    if (!do_recv(ssl, (uint8_t *)buf, num)) {
       return ssl->err == SSL_ERROR_ZERO_RETURN ? 0 : -1;
     }
   }
@@ -6158,7 +6164,7 @@ int SSL_write(SSL *ssl, const void *buf, int num) {
    * his mind after a WANT_READ or a WANT_WRITE.
   */
   if (num > 0 && !ssl->write_pending) {
-    if ((res = tls_write(ssl, buf, num)) <= 0) {
+    if ((res = tls_write(ssl, (const uint8_t *)buf, num)) <= 0) {
       return -1;
     }
     ssl->write_pending = 1;
@@ -6254,7 +6260,7 @@ NS_INTERNAL void kr_set_state(struct ssl_st *ssl, enum kr_state new_state) {
 NS_INTERNAL tls_sec_t tls_new_security(void) {
   struct tls_security *sec;
 
-  sec = calloc(1, sizeof(*sec));
+  sec = (struct tls_security *)calloc(1, sizeof(*sec));
   if (NULL == sec) return NULL;
 
   SHA256_Init(&sec->handshakes_hash);
@@ -6264,7 +6270,7 @@ NS_INTERNAL tls_sec_t tls_new_security(void) {
 
 NS_INTERNAL void tls_free_security(tls_sec_t sec) {
   if (sec) {
-    const kr_cipher_info *ci = kr_cipher_get_info(sec->cipher_suite);
+    const kr_cipher_info *ci = kr_cipher_get_info((kr_cs_id)sec->cipher_suite);
     RSA_free(sec->svr_key);
     if (sec->server_write_ctx != NULL) ci->free_ctx(sec->server_write_ctx);
     if (sec->client_write_ctx != NULL) ci->free_ctx(sec->client_write_ctx);
@@ -6362,8 +6368,8 @@ NS_INTERNAL void tls_generate_client_finished(tls_sec_t sec, uint8_t *vrfy,
 
 NS_INTERNAL void tls_generate_keys(tls_sec_t sec, int is_server) {
   uint8_t buf[13 + sizeof(sec->cl_rnd) + sizeof(sec->sv_rnd)];
-  int mac_len = kr_hmac_len(sec->cipher_suite);
-  const kr_cipher_info *ci = kr_cipher_get_info(sec->cipher_suite);
+  int mac_len = kr_hmac_len((kr_cs_id)sec->cipher_suite);
+  const kr_cipher_info *ci = kr_cipher_get_info((kr_cs_id)sec->cipher_suite);
 
   memcpy(buf, "key expansion", 13);
   memcpy(buf + 13, &sec->sv_rnd, sizeof(sec->sv_rnd));
@@ -6385,19 +6391,19 @@ NS_INTERNAL void tls_generate_keys(tls_sec_t sec, int is_server) {
 
 NS_INTERNAL int tls_tx_push(SSL *ssl, const void *data, size_t len) {
   if (ssl->tx_len + len > ssl->tx_max_len) {
-    size_t new_len;
-    void *new;
+    size_t nex_len;
+    void *nex;
 
-    new_len = ssl->tx_max_len + (len < 512 ? 512 : len);
-    new = realloc(ssl->tx_buf, new_len);
-    if (NULL == new) {
+    nex_len = ssl->tx_max_len + (len < 512 ? 512 : len);
+    nex = realloc(ssl->tx_buf, nex_len);
+    if (NULL == nex) {
       /* or block? */
       ssl_err(ssl, SSL_ERROR_SYSCALL);
       return 0;
     }
 
-    ssl->tx_buf = new;
-    ssl->tx_max_len = new_len;
+    ssl->tx_buf = (uint8_t *)nex;
+    ssl->tx_max_len = nex_len;
   }
 
   memcpy(ssl->tx_buf + ssl->tx_len, data, len);
@@ -6411,8 +6417,8 @@ NS_INTERNAL int tls_send_enc(SSL *ssl, uint8_t type, const void *buf,
   struct tls_hdr hdr;
   int hdr_offset, enc_offset, enc_len;
 
-  const int mac_len = kr_hmac_len(ssl->cur->cipher_suite);
-  const kr_cipher_info *ci = kr_cipher_get_info(ssl->cur->cipher_suite);
+  const int mac_len = kr_hmac_len((kr_cs_id)ssl->cur->cipher_suite);
+  const kr_cipher_info *ci = kr_cipher_get_info((kr_cs_id)ssl->cur->cipher_suite);
   /* Only CBC mode for block ciphers for now, so block cipher -> CBC. */
   const int is_cbc = (ci->block_len > 1);
   const size_t max =
@@ -6465,7 +6471,7 @@ NS_INTERNAL int tls_send_enc(SSL *ssl, uint8_t type, const void *buf,
 
     msgs[0] = (uint8_t *) &phdr;
     msgl[0] = sizeof(phdr);
-    msgs[1] = buf;
+    msgs[1] = (uint8_t *)buf;
     msgl[1] = len;
     kr_ssl_hmac(ssl, ssl->is_server ? KR_SERVER_MAC : KR_CLIENT_MAC, 2, msgs,
                 msgl, digest);
@@ -6531,8 +6537,8 @@ NS_INTERNAL int tls_send(SSL *ssl, uint8_t type, const void *buf, size_t len) {
 
 NS_INTERNAL void tls_add_handshake_to_hash(SSL *ssl, const void *data,
                                            size_t len) {
-  if (ssl->cur) SHA256_Update(&ssl->cur->handshakes_hash, data, len);
-  if (ssl->nxt) SHA256_Update(&ssl->nxt->handshakes_hash, data, len);
+  if (ssl->cur) SHA256_Update(&ssl->cur->handshakes_hash, (sha2_byte *)data, len);
+  if (ssl->nxt) SHA256_Update(&ssl->nxt->handshakes_hash, (sha2_byte *)data, len);
 }
 
 NS_INTERNAL int tls_send_certs(SSL *ssl, const PEM *certs) {
@@ -6770,7 +6776,7 @@ NS_INTERNAL int tls_cl_finish(SSL *ssl) {
 /* Amalgamated: #include "ktypes.h" */
 
 static int check_cipher(uint16_t suite) {
-  return kr_cipher_get_info(suite) != NULL && kr_hmac_len(suite) >= 0;
+  return kr_cipher_get_info((kr_cs_id)suite) != NULL && kr_hmac_len((kr_cs_id)suite) >= 0;
 }
 
 static int check_compressor(uint8_t compressor) {
@@ -7113,7 +7119,7 @@ static int handle_key_exch(SSL *ssl, const struct tls_hdr *hdr,
   uint32_t len;
   uint16_t ilen;
   size_t out_size = RSA_block_size(ssl->ctx->rsa_privkey);
-  uint8_t *out = malloc(out_size);
+  uint8_t *out = (uint8_t *)malloc(out_size);
   int ret;
 
   (void) hdr;
@@ -7396,8 +7402,8 @@ static int decrypt_and_vrfy(SSL *ssl, const struct tls_hdr *hdr, uint8_t *buf,
   const uint8_t *msgs[2];
   size_t msgl[2];
   const uint8_t *mac;
-  const int mac_len = kr_hmac_len(ssl->cur->cipher_suite);
-  const kr_cipher_info *ci = kr_cipher_get_info(ssl->cur->cipher_suite);
+  const int mac_len = kr_hmac_len((kr_cs_id)ssl->cur->cipher_suite);
+  const kr_cipher_info *ci = kr_cipher_get_info((kr_cs_id)ssl->cur->cipher_suite);
   /* Only CBC mode for block ciphers for now, so block cipher -> CBC. */
   const int is_cbc = (ci->block_len > 1);
   void *cctx =
@@ -7802,7 +7808,7 @@ static int decode_extension(X509 *cert, const uint8_t *oid, size_t oid_len,
       ptr = ber_decode_tag(&tag, ptr, end - ptr);
       if (ptr == NULL) return 0;
       if (tag.ber_tag != 0x30) return 0; /* Sequence. */
-      cert->alt_names.ptr = realloc(cert->alt_names.ptr, tag.ber_len);
+      cert->alt_names.ptr = (uint8_t *)realloc(cert->alt_names.ptr, tag.ber_len);
       if (cert->alt_names.ptr == NULL) return 0;
       memcpy(cert->alt_names.ptr, ptr, tag.ber_len);
       cert->alt_names.len = tag.ber_len;
@@ -7945,7 +7951,7 @@ static int parse_tbs_cert(X509 *cert, const uint8_t *ptr, size_t len) {
   /* name: issuer */
   ptr = ber_decode_tag(&tag, ptr, end - ptr);
   if (NULL == ptr) return 0;
-  cert->issuer.ptr = malloc(tag.ber_len);
+  cert->issuer.ptr = (uint8_t *)malloc(tag.ber_len);
   if (NULL == cert->issuer.ptr) return 0;
   memcpy(cert->issuer.ptr, ptr, tag.ber_len);
   cert->issuer.len = tag.ber_len;
@@ -7959,7 +7965,7 @@ static int parse_tbs_cert(X509 *cert, const uint8_t *ptr, size_t len) {
   /* name: subject */
   ptr = ber_decode_tag(&tag, ptr, end - ptr);
   if (NULL == ptr) return 0;
-  cert->subject.ptr = malloc(tag.ber_len);
+  cert->subject.ptr = (uint8_t *)malloc(tag.ber_len);
   if (NULL == cert->subject.ptr) return 0;
   memcpy(cert->subject.ptr, ptr, tag.ber_len);
   cert->subject.len = tag.ber_len;
@@ -7994,7 +8000,7 @@ X509 *X509_new(const uint8_t *ptr, size_t len) {
 
   dprintf(("cert %p %d\n", ptr, (int) len));
 
-  cert = calloc(1, sizeof(*cert));
+  cert = (X509 *)calloc(1, sizeof(*cert));
   if (NULL == cert) return NULL;
 
   ptr = ber_decode_tag(&tag, ptr, end - ptr);
@@ -8025,7 +8031,7 @@ X509 *X509_new(const uint8_t *ptr, size_t len) {
     ptr++;
     tag.ber_len--;
   }
-  cert->sig.ptr = malloc(tag.ber_len);
+  cert->sig.ptr = (uint8_t *)malloc(tag.ber_len);
   if (NULL == cert->sig.ptr) return 0;
   memcpy(cert->sig.ptr, ptr, tag.ber_len);
   cert->sig.len = tag.ber_len;
@@ -8323,26 +8329,26 @@ static enum pem_filter_result pem_issuer_filter(const DER *obj, int type,
   enum pem_filter_result res = PEM_FILTER_NO;
   struct vec *issuer = (struct vec *) arg;
   if (type != PEM_SIG_CERT) return PEM_FILTER_NO;
-  X509 *new = X509_new(obj->der, obj->der_len);
-  if (new != NULL && x509_issued_by(&new->subject, issuer)) {
+  X509 *nex = X509_new(obj->der, obj->der_len);
+  if (nex != NULL && x509_issued_by(&nex->subject, issuer)) {
     res = PEM_FILTER_YES_AND_STOP;
 #if KRYPTON_DEBUG_VERIFY
     dprintf(("found trust anchor\n"));
 #endif
   }
-  X509_free(new);
+  X509_free(nex);
   return res;
 }
 
 static X509 *find_anchor(SSL_CTX *ctx, X509 *chain) {
   PEM *p = pem_load(ctx->ca_file, pem_issuer_filter, &chain->issuer);
   if (p != NULL && p->num_obj == 1) {
-    X509 *new = X509_new(p->obj->der, p->obj->der_len);
-    if (new != NULL && x509_issued_by(&new->subject, &chain->issuer)) {
+    X509 *nex = X509_new(p->obj->der, p->obj->der_len);
+    if (nex != NULL && x509_issued_by(&nex->subject, &chain->issuer)) {
       pem_free(p);
-      return new;
+      return nex;
     }
-    X509_free(new);
+    X509_free(nex);
   }
   pem_free(p);
   return NULL;
@@ -8370,3 +8376,7 @@ int X509_verify(SSL_CTX *ctx, X509 *chain) {
 #endif
   return res;
 }
+
+#ifdef __cplusplus
+}
+#endif
